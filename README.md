@@ -157,7 +157,34 @@ Depending on the message type, it also has `media_id`, `mime_type`, `caption` an
 
 ### Debugging with real messages
 
-n8n's **Test URL** works with real messages if AutomiQ can reach it over `https`, for example through a tunnel. Paste the Test URL into the portal's Webhook page, select **Listen for test event**, and send a WhatsApp message. Remember to put the Production URL back afterwards.
+Use the portal's **Test webhook URL** to see real WhatsApp messages in a test run, without touching your live workflow.
+
+While a test URL is set, every delivery to your production URL is also sent to the test URL, with the same body, signature and token. The two go out in parallel, so a slow test URL never holds up production. The test URL:
+
+- stops receiving copies 1 hour after it was last set. **Keep for 1 more hour** restarts the hour.
+- needs a sign-in from the last 10 minutes to set or extend. Removing it does not.
+- receives nothing when no production URL is set.
+
+**Option A: n8n Cloud or any public n8n**
+
+1. Open the workflow and copy the trigger's **Test URL** (it contains `/webhook-test/`).
+2. In the AutomiQ portal, open **Webhook** and paste it as the **Test webhook URL**.
+3. In n8n, select **Execute workflow**, then send a WhatsApp message to your number within about 2 minutes.
+
+n8n catches one request per listen. Other copies get `404` and are logged as failed test deliveries, which do not count in the portal's health figures.
+
+**Option B: local n8n**
+
+1. Expose n8n over `https`, for example with `cloudflared tunnel --url http://localhost:5678`.
+2. Use `https://<your-tunnel>/webhook/<id>/webhook` as the Test webhook URL, with the workflow active.
+
+Quick tunnel addresses change every time you start one.
+
+**Before you test:**
+
+- A test run executes the whole workflow, so your replies are sent twice: once by production and once by the test run. Deactivate the nodes that send messages in the editor (select the node and press `D`) and do not save.
+- Do not use public request bins such as webhook.site. Anyone with the link can see the message content and the `x-automiq-token` header.
+- Remove the test URL when you are done.
 
 ## Errors
 
@@ -191,6 +218,8 @@ The nodes translate the most common errors into plain messages. The original Wha
 - [Changelog](CHANGELOG.md)
 
 ## Version history
+
+**0.2.1**: README: debugging with the portal's Test webhook URL.
 
 **0.2.0**: first full release.
 
