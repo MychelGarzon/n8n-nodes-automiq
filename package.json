@@ -1,0 +1,55 @@
+{
+    "name": "@automiq/n8n-nodes-automiq",
+    "version": "0.1.0",
+    "description": "Send and receive WhatsApp messages in n8n through the AutomiQ Gateway (official WhatsApp Cloud API).",
+    "license": "MIT",
+    "homepage": "https://github.com/MychelGarzon/n8n-nodes-automiq#readme",
+    "keywords": [
+        "n8n-community-node-package",
+        "automiq",
+        "whatsapp",
+        "whatsapp-cloud-api",
+        "messaging"
+    ],
+    "author": {
+        "name": "Mychel Garzon",
+        "email": "mychel.garzon@gmail.com"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/MychelGarzon/n8n-nodes-automiq.git"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "n8n-node build",
+        "build:watch": "tsc --watch",
+        "dev": "n8n-node dev",
+        "lint": "n8n-node lint",
+        "lint:fix": "n8n-node lint --fix",
+        "release": "n8n-node release",
+        "prepublishOnly": "n8n-node prerelease"
+    },
+    "files": [
+        "dist"
+    ],
+    "n8n": {
+        "n8nNodesApiVersion": 1,
+        "strict": true,
+        "credentials": [],
+        "nodes": [
+            "dist/nodes/Automiq/Automiq.node.js"
+        ]
+    },
+    "devDependencies": {
+        "@n8n/node-cli": "*",
+        "eslint": "9.32.0",
+        "prettier": "3.6.2",
+        "release-it": "^21.1.0",
+        "typescript": "5.9.2"
+    },
+    "peerDependencies": {
+        "n8n-workflow": "*"
+    }
+}
