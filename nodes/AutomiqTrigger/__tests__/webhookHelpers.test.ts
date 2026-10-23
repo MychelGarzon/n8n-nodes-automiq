@@ -53,7 +53,7 @@ const statusPayload = {
 					value: {
 						metadata: { display_phone_number: '358468045157', phone_number_id: '1352140101310633' },
 						statuses: [
-							{ id: 'wamid.OUT1', status: 'delivered', timestamp: '1792772500', recipient_id: '16505551234' },
+							{ id: 'wamid.OUT1', status: 'delivered', timestamp: '1792772500', recipient_id: '16505551234', recipient_user_id: 'US.1' },
 						],
 					},
 				},
@@ -133,7 +133,7 @@ describe('flattenEvents', () => {
 
 	it('flattens statuses, and filters by event kind', () => {
 		expect(flattenEvents(statusPayload, ['statuses'])).toEqual([
-			expect.objectContaining({ event: 'status', message_id: 'wamid.OUT1', status: 'delivered' }),
+			expect.objectContaining({ event: 'status', message_id: 'wamid.OUT1', status: 'delivered', recipient_user_id: 'US.1' }),
 		]);
 		expect(flattenEvents(statusPayload, ['messages'])).toEqual([]);
 		expect(flattenEvents(messagePayload, ['statuses'])).toEqual([]);

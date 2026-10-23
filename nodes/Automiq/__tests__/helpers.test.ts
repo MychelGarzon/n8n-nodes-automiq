@@ -10,7 +10,17 @@ describe('normalizeRecipient', () => {
 		expect(normalizeRecipient(input)).toBe(expected);
 	});
 
-	it.each(['', 'abc', '12345', '1234567890123456'])('rejects %p', (input) => {
+	it('explains an empty recipient, including an expression that resolved to nothing', () => {
+		for (const input of ['', '  ', 'undefined', undefined as unknown as string]) {
+			expect(() => normalizeRecipient(input)).toThrow('recipient phone number is empty');
+		}
+	});
+
+	it('explains an expression typed in Fixed mode', () => {
+		expect(() => normalizeRecipient('{{ $json.from }}')).toThrow('Click Expression on this field');
+	});
+
+	it.each(['abc', '12345', '1234567890123456'])('rejects %p', (input) => {
 		expect(() => normalizeRecipient(input)).toThrow('not a valid phone number');
 	});
 });
