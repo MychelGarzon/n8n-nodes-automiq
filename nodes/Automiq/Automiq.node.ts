@@ -72,7 +72,7 @@ export class Automiq implements INodeType {
 				type: 'string',
 				required: true,
 				default: '',
-				placeholder: 'e.g. 358401234567',
+				placeholder: 'e.g. 16505551234',
 				description:
 					'The WhatsApp number to send to, in international format with the country code. Spaces, dashes and a leading + are removed.',
 				displayOptions: showForSendText,

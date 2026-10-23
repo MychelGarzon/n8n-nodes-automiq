@@ -23,7 +23,7 @@ export function normalizeRecipient(raw: string): string {
 		.replace(/^00/, '');
 	if (!/^\d{6,15}$/.test(digits)) {
 		throw new Error(
-			`"${raw}" is not a valid phone number. Use international format with the country code, for example 358401234567.`,
+			`"${raw}" is not a valid phone number. Use international format with the country code, for example 16505551234.`,
 		);
 	}
 	return digits;

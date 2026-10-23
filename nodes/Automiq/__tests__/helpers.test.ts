@@ -2,10 +2,10 @@ import { buildTextMessage, describeApiError, normalizeRecipient } from '../helpe
 
 describe('normalizeRecipient', () => {
 	it.each([
-		['+358 40 123 4567', '358401234567'],
-		['00358-40-1234567', '358401234567'],
-		['(358) 401234567', '358401234567'],
-		['358401234567', '358401234567'],
+		['+1 650 555 1234', '16505551234'],
+		['001-650-5551234', '16505551234'],
+		['(1) 6505551234', '16505551234'],
+		['16505551234', '16505551234'],
 	])('cleans %s', (input, expected) => {
 		expect(normalizeRecipient(input)).toBe(expected);
 	});
@@ -17,10 +17,10 @@ describe('normalizeRecipient', () => {
 
 describe('buildTextMessage', () => {
 	it('builds the minimal Meta body with no optional keys', () => {
-		expect(buildTextMessage({ to: '+358 40 123 4567', text: 'Hi' })).toEqual({
+		expect(buildTextMessage({ to: '+1 650 555 1234', text: 'Hi' })).toEqual({
 			messaging_product: 'whatsapp',
 			recipient_type: 'individual',
-			to: '358401234567',
+			to: '16505551234',
 			type: 'text',
 			text: { body: 'Hi' },
 		});
@@ -28,7 +28,7 @@ describe('buildTextMessage', () => {
 
 	it('adds preview_url and the reply context only when set', () => {
 		const body = buildTextMessage({
-			to: '358401234567',
+			to: '16505551234',
 			text: 'See https://automiq.fi',
 			previewUrl: true,
 			replyToMessageId: ' wamid.ABC ',
@@ -38,8 +38,8 @@ describe('buildTextMessage', () => {
 	});
 
 	it('rejects empty and too long text', () => {
-		expect(() => buildTextMessage({ to: '358401234567', text: '   ' })).toThrow('empty');
-		expect(() => buildTextMessage({ to: '358401234567', text: 'x'.repeat(4097) })).toThrow('4096');
+		expect(() => buildTextMessage({ to: '16505551234', text: '   ' })).toThrow('empty');
+		expect(() => buildTextMessage({ to: '16505551234', text: 'x'.repeat(4097) })).toThrow('4096');
 	});
 });
 
