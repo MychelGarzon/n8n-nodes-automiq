@@ -1,6 +1,6 @@
 {
     "name": "@automiq/n8n-nodes-automiq",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Send and receive WhatsApp messages in n8n through the AutomiQ Gateway (official WhatsApp Cloud API).",
     "license": "MIT",
     "homepage": "https://github.com/MychelGarzon/n8n-nodes-automiq#readme",
