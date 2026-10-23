@@ -9,8 +9,18 @@ import type {
 } from 'n8n-workflow';
 import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
-import { automiqApiRequest, GRAPH_VERSION, toNodeError } from './GenericFunctions';
-import { buildMarkAsRead, buildMediaMessage, buildTextMessage } from './helpers';
+import {
+	automiqApiRequest,
+	GRAPH_VERSION,
+	listApprovedTemplates,
+	toNodeError,
+} from './GenericFunctions';
+import {
+	buildMarkAsRead,
+	buildMediaMessage,
+	buildTemplateMessage,
+	buildTextMessage,
+} from './helpers';
 
 const showFor = (operations: string[], extra: Record<string, string[]> = {}) => ({
 	show: { resource: ['message'], operation: operations, ...extra },
@@ -71,6 +81,12 @@ export class Automiq implements INodeType {
 						description: 'Send an image, document, audio or video to a WhatsApp user',
 					},
 					{
+						name: 'Send Template',
+						value: 'sendTemplate',
+						action: 'Send a template message',
+						description: 'Send an approved template, also outside the 24-hour window',
+					},
+					{
 						name: 'Send Text',
 						value: 'sendText',
 						action: 'Send a text message',
@@ -88,7 +104,7 @@ export class Automiq implements INodeType {
 				default: '',
 				description:
 					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				displayOptions: showFor(['sendText', 'sendMedia', 'markAsRead']),
+				displayOptions: showFor(['sendText', 'sendMedia', 'sendTemplate', 'markAsRead']),
 			},
 			{
 				displayName: 'Recipient Phone Number',
@@ -99,7 +115,7 @@ export class Automiq implements INodeType {
 				placeholder: 'e.g. 16505551234',
 				description:
 					'The WhatsApp number to send to, in international format with the country code. Spaces, dashes and a leading + are removed.',
-				displayOptions: showFor(['sendText', 'sendMedia']),
+				displayOptions: showFor(['sendText', 'sendMedia', 'sendTemplate']),
 			},
 			{
 				displayName: 'Text',
@@ -201,6 +217,70 @@ export class Automiq implements INodeType {
 				options: [replyToMessageIdOption],
 			},
 			{
+				displayName: 'Template Name or ID',
+				name: 'template',
+				type: 'options',
+				typeOptions: { loadOptionsMethod: 'getTemplates', loadOptionsDependsOn: ['phoneNumberId'] },
+				required: true,
+				default: '',
+				description:
+					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				hint: 'Only approved templates are listed. In an expression, use name|language_code, for example hello_world|en_US.',
+				displayOptions: showFor(['sendTemplate']),
+			},
+			{
+				displayName: 'Body Parameters',
+				name: 'bodyParameters',
+				type: 'fixedCollection',
+				typeOptions: { multipleValues: true, sortable: true },
+				placeholder: 'Add parameter',
+				default: {},
+				description: 'Values for the variables in the template body',
+				displayOptions: showFor(['sendTemplate']),
+				options: [
+					{
+						name: 'parameter',
+						displayName: 'Parameter',
+						values: [
+							{
+								displayName: 'Name',
+								name: 'name',
+								type: 'string',
+								default: '',
+								placeholder: 'e.g. first_name',
+								description:
+									'Only for named variables like {{first_name}}. Leave empty for numbered variables like {{1}}, then the order counts.',
+							},
+							{
+								displayName: 'Value',
+								name: 'value',
+								type: 'string',
+								default: '',
+								description: 'The text that replaces the variable',
+							},
+						],
+					},
+				],
+			},
+			{
+				displayName: 'Options',
+				name: 'templateOptions',
+				type: 'collection',
+				placeholder: 'Add option',
+				default: {},
+				displayOptions: showFor(['sendTemplate']),
+				options: [
+					{
+						displayName: 'Components (JSON)',
+						name: 'componentsJson',
+						type: 'json',
+						default: '',
+						description:
+							"Advanced: the full components array from Meta's template documentation, for header media and buttons. Replaces Body Parameters when set.",
+					},
+				],
+			},
+			{
 				displayName: 'Message ID',
 				name: 'messageId',
 				type: 'string',
@@ -234,6 +314,12 @@ export class Automiq implements INodeType {
 					value: number.phone_number_id,
 					description: `Phone number ID ${number.phone_number_id}`,
 				}));
+			},
+
+			async getTemplates(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const phoneNumberId = this.getCurrentNodeParameter('phoneNumberId') as string | undefined;
+				if (!phoneNumberId) return [];
+				return await listApprovedTemplates.call(this, phoneNumberId);
 			},
 		},
 	};
@@ -271,6 +357,19 @@ export class Automiq implements INodeType {
 						filename:
 							mediaType === 'document' ? (this.getNodeParameter('filename', i, '') as string) : undefined,
 						replyToMessageId: options.replyToMessageId as string | undefined,
+					});
+				} else if (resource === 'message' && operation === 'sendTemplate') {
+					const options = this.getNodeParameter('templateOptions', i, {}) as IDataObject;
+					const parameters = (
+						this.getNodeParameter('bodyParameters', i, {}) as {
+							parameter?: Array<{ name?: string; value?: string }>;
+						}
+					).parameter ?? [];
+					body = buildTemplateMessage({
+						to: this.getNodeParameter('to', i) as string,
+						template: this.getNodeParameter('template', i) as string,
+						bodyParameters: parameters,
+						componentsJson: options.componentsJson,
 					});
 				} else if (resource === 'message' && operation === 'markAsRead') {
 					body = buildMarkAsRead(
