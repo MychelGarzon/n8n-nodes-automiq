@@ -44,7 +44,8 @@
             "dist/credentials/AutomiqApi.credentials.js"
         ],
         "nodes": [
-            "dist/nodes/Automiq/Automiq.node.js"
+            "dist/nodes/Automiq/Automiq.node.js",
+            "dist/nodes/AutomiqTrigger/AutomiqTrigger.node.js"
         ]
     },
     "devDependencies": {
@@ -59,5 +60,12 @@
     },
     "peerDependencies": {
         "n8n-workflow": "*"
+    },
+    "auto-changelog": {
+        "template": "keepachangelog",
+        "unreleased": true,
+        "commitLimit": false,
+        "hideCredit": true,
+        "ignoreCommitPattern": "^Release \\d"
     }
 }

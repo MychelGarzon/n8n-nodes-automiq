@@ -1,0 +1,14 @@
+{
+	"node": "@automiq/n8n-nodes-automiq.automiqTrigger",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Communication"],
+	"resources": {
+		"credentialDocumentation": [
+			{ "url": "https://github.com/MychelGarzon/n8n-nodes-automiq?tab=readme-ov-file#credentials" }
+		],
+		"primaryDocumentation": [
+			{ "url": "https://github.com/MychelGarzon/n8n-nodes-automiq?tab=readme-ov-file" }
+		]
+	}
+}
