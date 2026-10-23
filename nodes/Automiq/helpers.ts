@@ -155,3 +155,68 @@ export function buildMarkAsRead(messageId: string, showTypingIndicator = false):
 		...(showTypingIndicator ? { typing_indicator: { type: 'text' } } : {}),
 	};
 }
+
+export interface MediaMessageInput {
+	to: string;
+	mediaType: string;
+	source: string;
+	value: string;
+	caption?: string;
+	filename?: string;
+	replyToMessageId?: string;
+}
+
+const MEDIA_TYPES = ['audio', 'document', 'image', 'video'];
+const CAPTION_TYPES = ['document', 'image', 'video'];
+const MAX_CAPTION_LENGTH = 1024;
+const HTTPS_URL = /^https:\/\/[^\s/$.?#][^\s]*$/i;
+
+/** The Meta Cloud API body for an audio, document, image or video message. */
+export function buildMediaMessage(input: MediaMessageInput): Record<string, unknown> {
+	const mediaType = String(input.mediaType ?? '');
+	if (!MEDIA_TYPES.includes(mediaType)) {
+		throw new Error(`Unsupported media type "${mediaType}". Use audio, document, image or video.`);
+	}
+
+	const value = String(input.value ?? '').trim();
+	const media: Record<string, unknown> = {};
+	if (input.source === 'link') {
+		if (!HTTPS_URL.test(value)) {
+			throw new Error(`"${value}" is not a valid URL. Use a public link that starts with https://.`);
+		}
+		media.link = value;
+	} else if (input.source === 'id') {
+		if (!/^\d+$/.test(value)) {
+			throw new Error(`"${value}" is not a valid media ID. A WhatsApp media ID contains only digits.`);
+		}
+		media.id = value;
+	} else {
+		throw new Error(`Unsupported media source "${input.source}". Use a URL or a media ID.`);
+	}
+
+	const caption = input.caption?.trim();
+	if (caption && CAPTION_TYPES.includes(mediaType)) {
+		if (caption.length > MAX_CAPTION_LENGTH) {
+			throw new Error(
+				`The caption is ${caption.length} characters long. WhatsApp allows up to ${MAX_CAPTION_LENGTH}.`,
+			);
+		}
+		media.caption = caption;
+	}
+
+	const filename = input.filename?.trim();
+	if (filename && mediaType === 'document') {
+		media.filename = filename;
+	}
+
+	const replyTo = input.replyToMessageId?.trim();
+
+	return {
+		messaging_product: 'whatsapp',
+		recipient_type: 'individual',
+		to: normalizeRecipient(input.to),
+		type: mediaType,
+		[mediaType]: media,
+		...(replyTo ? { context: { message_id: replyTo } } : {}),
+	};
+}
