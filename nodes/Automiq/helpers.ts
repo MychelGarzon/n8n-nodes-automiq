@@ -16,6 +16,17 @@ const MAX_TEXT_LENGTH = 4096;
 
 /** Digits only, international format, no leading + or 00. */
 export function normalizeRecipient(raw: string): string {
+	const text = (raw as unknown) == null ? '' : String(raw).trim();
+	if (!text || text === 'undefined' || text === 'null') {
+		throw new Error(
+			'The recipient phone number is empty. If it comes from an expression, check that the field exists in the incoming item, for example {{ $json.from }} exists on messages but not on statuses.',
+		);
+	}
+	if (text.includes('{{')) {
+		throw new Error(
+			`"${text}" looks like an expression typed in Fixed mode. Click Expression on this field so n8n fills in the value.`,
+		);
+	}
 	const digits = String(raw)
 		.trim()
 		.replace(/[\s\-().]/g, '')

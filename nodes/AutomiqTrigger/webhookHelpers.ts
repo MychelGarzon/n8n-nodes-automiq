@@ -133,6 +133,7 @@ export function flattenEvents(payload: unknown, kinds: EventKind[]): FlatEvent[]
 						message_id: s.id,
 						status: s.status,
 						...(s.recipient_id !== undefined ? { recipient_id: s.recipient_id } : {}),
+						...(s.recipient_user_id !== undefined ? { recipient_user_id: s.recipient_user_id } : {}),
 						timestamp: Number(s.timestamp),
 						...(Array.isArray(s.errors) ? { errors: s.errors } : {}),
 						...where,
