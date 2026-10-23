@@ -1,3 +1,5 @@
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=MychelGarzon_n8n-nodes-automiq&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=MychelGarzon_n8n-nodes-automiq)
+
 # n8n-nodes-automiq
 
 This is an n8n community node. It lets you use _app/service name_ in your n8n workflows.
