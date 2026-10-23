@@ -1,48 +1,206 @@
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=MychelGarzon_n8n-nodes-automiq&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=MychelGarzon_n8n-nodes-automiq)
+[![npm version](https://img.shields.io/npm/v/@automiq/n8n-nodes-automiq)](https://www.npmjs.com/package/@automiq/n8n-nodes-automiq)
 
-# n8n-nodes-automiq
+# AutomiQ for WhatsApp (n8n community node)
 
-This is an n8n community node. It lets you use _app/service name_ in your n8n workflows.
+Send and receive WhatsApp messages in n8n through the [AutomiQ Gateway](https://www.automiq.fi), which uses the official WhatsApp Cloud API.
 
-_App/service name_ is _one or two sentences describing the service this node integrates with_.
+One credential, no HTTP Request nodes, no Code nodes, no secrets pasted into workflows:
+
+- **AutomiQ for WhatsApp**: send text, media and template messages, and mark messages as read. Works as a tool for n8n AI Agents.
+- **AutomiQ for WhatsApp Trigger**: receives messages and delivery statuses, verifies every delivery inside the node, and outputs one clean item per message.
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/sustainable-use-license/) workflow automation platform.
 
-[Installation](#installation)
-[Operations](#operations)
-[Credentials](#credentials)
-[Compatibility](#compatibility)
-[Usage](#usage)
-[Resources](#resources)
-[Version history](#version-history)
+> WhatsApp is a trademark of Meta Platforms, Inc. AutomiQ is not affiliated with, endorsed by or sponsored by Meta.
+
+[Installation](#installation) · [Credentials](#credentials) · [Operations](#operations) · [Trigger](#trigger) · [Errors](#errors) · [Compatibility](#compatibility) · [Resources](#resources) · [Version history](#version-history)
 
 ## Installation
 
-Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) in the n8n community nodes documentation.
+You need an AutomiQ account with a connected WhatsApp number. Get started at [www.automiq.fi](https://www.automiq.fi).
 
-## Operations
+**n8n (self-hosted or Cloud, where community nodes are allowed):**
 
-_List the operations supported by your node._
+1. Go to **Settings > Community Nodes**.
+2. Select **Install** and enter `@automiq/n8n-nodes-automiq`.
+3. Confirm and install.
+
+See the n8n [community nodes installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) for details.
+
+**Manual install (self-hosted):** run `npm install @automiq/n8n-nodes-automiq` in your n8n custom nodes folder (usually `~/.n8n/custom`) and restart n8n.
 
 ## Credentials
 
-_If users need to authenticate with the app/service, provide details here. You should include prerequisites (such as signing up with the service), available authentication methods, and how to set them up._
+Create one **AutomiQ API** credential. Both nodes use it.
+
+| Field | Where to find it | Needed for |
+|---|---|---|
+| **API Key** | AutomiQ portal > **API keys**. It starts with `amq_live_` and is shown only once when you create it. | Both nodes |
+| **Webhook Secret** | AutomiQ portal > **Webhook** > reveal the **Webhook secret** (64 characters). Not the webhook token. | The Trigger only |
+
+When you save the credential, n8n tests the API key against AutomiQ. A wrong or revoked key shows "Invalid or revoked AutomiQ API key".
+
+**Recommended:** in the credential, set **Allowed HTTP Request Domains** to `www.automiq.fi`, so this key can never be sent to another site from an HTTP Request node.
+
+## Operations
+
+All operations are under **Resource: Message**. Pick the **Sender Phone Number** from the list. It shows the numbers connected to your AutomiQ account.
+
+### Send Text
+
+| Field | Notes |
+|---|---|
+| Recipient Phone Number | International format with the country code, for example `16505551234`. Spaces, dashes, `+` and a leading `00` are removed. |
+| Text | Up to 4096 characters. |
+| Options > Link Preview | Shows a preview of the first link. |
+| Options > Reply To Message ID | Sends the message as a reply that quotes a received message. |
+
+Free-form messages can only be sent within 24 hours after the customer last wrote to you. Outside that window, use **Send Template**.
+
+### Send Media
+
+| Field | Notes |
+|---|---|
+| Media Type | Image (JPEG or PNG, up to 5 MB), Document (PDF, Word, Excel, PowerPoint or TXT, up to 100 MB), Audio (AAC, AMR, MP3, M4A or OGG Opus, up to 16 MB), Video (MP4 or 3GP with H.264 and AAC, up to 16 MB). |
+| Media Source | **URL**: a public link that starts with `https://`. WhatsApp downloads the file from there. **Media ID**: media already uploaded to WhatsApp. |
+| Caption | Image, video and document only. Up to 1024 characters. |
+| File Name | Document only. Include the extension, so WhatsApp shows the right icon. |
+| Options > Reply To Message ID | Sends the media as a reply. |
+
+### Send Template
+
+Templates are the only way to start a conversation, or to write to someone after the 24-hour window.
+
+| Field | Notes |
+|---|---|
+| Template | Lists the **approved** templates of the sender number's WhatsApp account, for example `order_update (en)`. In an expression, use `name|language_code`, for example `order_update|en_US`. This is the same format n8n's built-in WhatsApp node uses. |
+| Body Parameters | One value per variable in the template body. For numbered variables like `{{1}}`, leave **Name** empty and keep the order. For named variables like `{{first_name}}`, fill in **Name**. |
+| Options > Components (JSON) | Advanced: the full `components` array from Meta's template documentation, for header media and buttons. Replaces Body Parameters when set. |
+
+### Mark as Read
+
+| Field | Notes |
+|---|---|
+| Message ID | The ID of a **received** message, for example `{{ $json.message_id }}` from the Trigger. |
+| Show Typing Indicator | Also shows "typing..." to the customer until you reply, or for up to 25 seconds. Only use it when a reply follows. |
+
+### Use with AI Agents
+
+The node can be used as a tool by n8n AI Agents. A common setup: **AutomiQ for WhatsApp Trigger** > **Mark as Read** with typing indicator > **AI Agent** > **Send Text** with Recipient `{{ $json.from }}`.
+
+## Trigger
+
+### Setup
+
+1. Add **AutomiQ for WhatsApp Trigger** to a workflow and select your AutomiQ API credential, with the **Webhook Secret** filled in.
+2. Copy the trigger's **Production URL**.
+3. In the AutomiQ portal, open **Webhook**, paste the URL and save.
+4. Activate the workflow.
+
+**Why the URL is set by hand:** AutomiQ has one webhook URL per account, and it can only be changed in the portal after a recent sign-in. There is deliberately no API to change it, because anyone who could change it could redirect every incoming message.
+
+### Security
+
+Every delivery is verified inside the node, before your workflow runs:
+
+- The `x-automiq-signature` header must be the HMAC-SHA256 of the timestamp and the exact raw body, signed with your webhook secret.
+- The `x-automiq-timestamp` must be within 5 minutes, which blocks replayed deliveries.
+- Anything else gets `401` and does not start the workflow.
+
+You do not need Header Auth, a Code node or the `crypto` module setting on self-hosted n8n.
+
+### Events
+
+| Event | Starts the workflow for |
+|---|---|
+| **Messages** (default) | Messages your customers send |
+| **Statuses** | Sent, delivered, read and failed updates for messages you sent |
+| **Other Events** | Other WhatsApp changes, such as template status updates |
+
+Use **Messages** for reply bots. Statuses have no sender (`from`), so an expression like `{{ $json.from }}` is empty for them.
+
+### Output
+
+One item per message or status. Each item also includes `raw` with Meta's original object, so no field is ever lost.
+
+**Message:**
+
+```json
+{
+  "event": "message",
+  "message_id": "wamid.HBgM...",
+  "from": "16505551234",
+  "from_user_id": "US.123456",
+  "name": "Jessica",
+  "type": "text",
+  "timestamp": 1792772499,
+  "text": "Hello!",
+  "phone_number_id": "1352140101310633",
+  "display_phone_number": "358468045157",
+  "waba_id": "1994442441262596",
+  "raw": { "...": "Meta's original message" }
+}
+```
+
+Depending on the message type, it also has `media_id`, `mime_type`, `caption` and `filename` (media), `reply_id` (button and list replies), `latitude` and `longitude` (location), `emoji` (reactions) and `reply_to_message_id` (when the customer replied to a message).
+
+**Status:** `event: "status"`, `message_id`, `status`, `recipient_id`, `recipient_user_id`, `timestamp`, `errors` (for failed messages), plus the same number fields and `raw`.
+
+### Options
+
+| Option | Effect |
+|---|---|
+| Ignore Duplicates | Skips messages and statuses that already started this workflow. Only works when the workflow is active. |
+| Include Portal Pings | Also starts the workflow for the portal's **Send test delivery**. Off by default. Pings are always answered with `200`. |
+| Raw Payload | Outputs the whole delivery as one item instead of one item per message or status. |
+
+### Debugging with real messages
+
+n8n's **Test URL** works with real messages if AutomiQ can reach it over `https`, for example through a tunnel. Paste the Test URL into the portal's Webhook page, select **Listen for test event**, and send a WhatsApp message. Remember to put the Production URL back afterwards.
+
+## Errors
+
+The nodes translate the most common errors into plain messages. The original WhatsApp text and code are always shown in the details.
+
+| Message | Meaning |
+|---|---|
+| Invalid or revoked AutomiQ API key | Create a new key in the portal and update the credential. |
+| This AutomiQ account is suspended | Contact AutomiQ support. |
+| This phone number is not linked to your AutomiQ account | Pick a number from the Sender Phone Number list. |
+| Outside the 24-hour customer service window (131047) | Send an approved template instead. |
+| WhatsApp could not deliver the message (131026) | The recipient may not have WhatsApp, or cannot receive messages from this number. |
+| WhatsApp rate limit reached (130429) | Turn on **Retry On Fail** in the node settings, or slow the workflow down. |
+| The template parameters do not match the template (132000) | The number of Body Parameters must match the template's variables. |
+| This template does not exist or is not approved (132001) | Check the name, the language and the approval status in WhatsApp Manager. |
+| The recipient phone number is empty | An expression resolved to nothing, for example `{{ $json.from }}` on a status event. |
+| ... looks like an expression typed in Fixed mode | Click **Expression** on that field. |
 
 ## Compatibility
 
-_State the minimum n8n version, as well as which versions you test against. You can also include any known version incompatibility issues._
-
-## Usage
-
-_This is an optional section. Use it to help users with any difficult or confusing aspects of the node._
-
-_By the time users are looking for community nodes, they probably already know n8n basics. But if you expect new users, you can link to the [Try it out](https://docs.n8n.io/try-it-out/) documentation to help them get started._
+- Tested with n8n 2.44.6.
+- Requires an n8n version that supports community nodes.
+- No runtime dependencies.
 
 ## Resources
 
-* [n8n community nodes documentation](https://docs.n8n.io/integrations/#community-nodes)
-* _Link to app/service documentation._
+- [AutomiQ](https://www.automiq.fi) and the AutomiQ portal
+- [n8n community nodes documentation](https://docs.n8n.io/integrations/#community-nodes)
+- [WhatsApp Cloud API: send messages](https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-messages)
+- [WhatsApp message templates](https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/overview)
+- [Changelog](CHANGELOG.md)
 
 ## Version history
 
-_This is another optional section. If your node has multiple versions, include a short description of available versions and what changed, as well as any compatibility impact._
+**0.2.0**: first full release.
+
+- AutomiQ API credential with a live key test and clear messages for invalid keys and suspended accounts.
+- AutomiQ for WhatsApp: Send Text, Send Media, Send Template (with a list of approved templates) and Mark as Read (with an optional typing indicator). Usable as an AI Agent tool.
+- AutomiQ for WhatsApp Trigger: in-node signature and timestamp verification, one clean item per message or status, and options for duplicates, portal pings and the raw payload.
+- Plain-language errors for the most common gateway and WhatsApp errors.
+
+**0.1.x**: placeholder releases used to set up publishing.
+
+## License
+
+[MIT](LICENSE.md)
