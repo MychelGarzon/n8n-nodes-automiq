@@ -5,10 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/MychelGarzon/n8n-nodes-automiq/compare/0.1.1...HEAD)
+## [0.2.0](https://github.com/MychelGarzon/n8n-nodes-automiq/compare/0.1.1...0.2.0)
 
 ### Merged
 
+- docs: full README for the 0.2.0 release [`#10`](https://github.com/MychelGarzon/n8n-nodes-automiq/pull/10)
+- fix: clearer recipient errors for empty values and Fixed-mode expressions; add recipient_user_id to status events [`#9`](https://github.com/MychelGarzon/n8n-nodes-automiq/pull/9)
+- feat: AutomiQ for WhatsApp Trigger with in-node signature verification, flat events and duplicate filter [`#8`](https://github.com/MychelGarzon/n8n-nodes-automiq/pull/8)
 - feat: Send Template operation with approved template dropdown and body parameters [`#7`](https://github.com/MychelGarzon/n8n-nodes-automiq/pull/7)
 - feat: Send Media operation for images, documents, audio and video by URL or media ID [`#6`](https://github.com/MychelGarzon/n8n-nodes-automiq/pull/6)
 - feat: Mark as Read operation with optional typing indicator [`#5`](https://github.com/MychelGarzon/n8n-nodes-automiq/pull/5)
