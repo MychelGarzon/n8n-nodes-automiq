@@ -10,9 +10,11 @@ import type {
 import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import { automiqApiRequest, GRAPH_VERSION, toNodeError } from './GenericFunctions';
-import { buildTextMessage } from './helpers';
+import { buildMarkAsRead, buildTextMessage } from './helpers';
 
-const showForSendText = { show: { resource: ['message'], operation: ['sendText'] } };
+const showFor = (...operations: string[]) => ({
+	show: { resource: ['message'], operation: operations },
+});
 
 export class Automiq implements INodeType {
 	description: INodeTypeDescription = {
@@ -47,6 +49,12 @@ export class Automiq implements INodeType {
 				displayOptions: { show: { resource: ['message'] } },
 				options: [
 					{
+						name: 'Mark as Read',
+						value: 'markAsRead',
+						action: 'Mark a message as read',
+						description: 'Mark a received message as read, optionally showing "typing..."',
+					},
+					{
 						name: 'Send Text',
 						value: 'sendText',
 						action: 'Send a text message',
@@ -64,7 +72,7 @@ export class Automiq implements INodeType {
 				default: '',
 				description:
 					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				displayOptions: showForSendText,
+				displayOptions: showFor('sendText', 'markAsRead'),
 			},
 			{
 				displayName: 'Recipient Phone Number',
@@ -75,7 +83,7 @@ export class Automiq implements INodeType {
 				placeholder: 'e.g. 16505551234',
 				description:
 					'The WhatsApp number to send to, in international format with the country code. Spaces, dashes and a leading + are removed.',
-				displayOptions: showForSendText,
+				displayOptions: showFor('sendText'),
 			},
 			{
 				displayName: 'Text',
@@ -85,7 +93,7 @@ export class Automiq implements INodeType {
 				required: true,
 				default: '',
 				description: 'The message text, up to 4096 characters',
-				displayOptions: showForSendText,
+				displayOptions: showFor('sendText'),
 			},
 			{
 				displayName: 'Options',
@@ -93,7 +101,7 @@ export class Automiq implements INodeType {
 				type: 'collection',
 				placeholder: 'Add option',
 				default: {},
-				displayOptions: showForSendText,
+				displayOptions: showFor('sendText'),
 				options: [
 					{
 						displayName: 'Link Preview',
@@ -112,6 +120,26 @@ export class Automiq implements INodeType {
 							'The ID of a received message to reply to. WhatsApp shows the reply quoting that message.',
 					},
 				],
+			},
+			{
+				displayName: 'Message ID',
+				name: 'messageId',
+				type: 'string',
+				required: true,
+				default: '',
+				placeholder: 'e.g. wamid.HBgMMzU4...',
+				description:
+					'The ID of the received message to mark as read, for example from the AutomiQ for WhatsApp Trigger',
+				displayOptions: showFor('markAsRead'),
+			},
+			{
+				displayName: 'Show Typing Indicator',
+				name: 'showTypingIndicator',
+				type: 'boolean',
+				default: false,
+				description:
+					'Whether to also show "typing..." to the user. WhatsApp hides it when you reply, or after 25 seconds. Only use it when a reply follows.',
+				displayOptions: showFor('markAsRead'),
 			},
 		],
 	};
@@ -139,23 +167,29 @@ export class Automiq implements INodeType {
 			try {
 				const resource = this.getNodeParameter('resource', i) as string;
 				const operation = this.getNodeParameter('operation', i) as string;
+				const phoneNumberId = this.getNodeParameter('phoneNumberId', i) as string;
 
-				if (resource !== 'message' || operation !== 'sendText') {
+				let body: Record<string, unknown>;
+				if (resource === 'message' && operation === 'sendText') {
+					const options = this.getNodeParameter('options', i, {}) as IDataObject;
+					body = buildTextMessage({
+						to: this.getNodeParameter('to', i) as string,
+						text: this.getNodeParameter('text', i) as string,
+						previewUrl: options.previewUrl as boolean | undefined,
+						replyToMessageId: options.replyToMessageId as string | undefined,
+					});
+				} else if (resource === 'message' && operation === 'markAsRead') {
+					body = buildMarkAsRead(
+						this.getNodeParameter('messageId', i) as string,
+						this.getNodeParameter('showTypingIndicator', i, false) as boolean,
+					);
+				} else {
 					throw new NodeOperationError(
 						this.getNode(),
 						`The operation "${operation}" is not supported`,
 						{ itemIndex: i },
 					);
 				}
-
-				const phoneNumberId = this.getNodeParameter('phoneNumberId', i) as string;
-				const options = this.getNodeParameter('options', i, {}) as IDataObject;
-				const body = buildTextMessage({
-					to: this.getNodeParameter('to', i) as string,
-					text: this.getNodeParameter('text', i) as string,
-					previewUrl: options.previewUrl as boolean | undefined,
-					replyToMessageId: options.replyToMessageId as string | undefined,
-				});
 
 				const response = await automiqApiRequest.call(
 					this,

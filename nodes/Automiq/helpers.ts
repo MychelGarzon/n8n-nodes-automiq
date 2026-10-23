@@ -139,3 +139,19 @@ export function describeApiError(httpCode: number | undefined, data: unknown): A
 
 	return undefined;
 }
+
+/** The Meta Cloud API body that marks a received message as read, optionally with "typing...". */
+export function buildMarkAsRead(messageId: string, showTypingIndicator = false): Record<string, unknown> {
+	const id = String(messageId ?? '').trim();
+	if (!id) {
+		throw new Error(
+			'The message ID is empty. Use the ID of a received message, for example from the AutomiQ for WhatsApp Trigger.',
+		);
+	}
+	return {
+		messaging_product: 'whatsapp',
+		status: 'read',
+		message_id: id,
+		...(showTypingIndicator ? { typing_indicator: { type: 'text' } } : {}),
+	};
+}
