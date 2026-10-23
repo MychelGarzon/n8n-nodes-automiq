@@ -32,7 +32,9 @@
         "prepublishOnly": "n8n-node prerelease"
     },
     "files": [
-        "dist"
+        "dist",
+        "!dist/**/__tests__/**",
+        "!dist/tsconfig.tsbuildinfo"
     ],
     "n8n": {
         "n8nNodesApiVersion": 1,
