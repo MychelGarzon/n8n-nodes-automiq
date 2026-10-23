@@ -10,11 +10,21 @@ import type {
 import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import { automiqApiRequest, GRAPH_VERSION, toNodeError } from './GenericFunctions';
-import { buildMarkAsRead, buildTextMessage } from './helpers';
+import { buildMarkAsRead, buildMediaMessage, buildTextMessage } from './helpers';
 
-const showFor = (...operations: string[]) => ({
-	show: { resource: ['message'], operation: operations },
+const showFor = (operations: string[], extra: Record<string, string[]> = {}) => ({
+	show: { resource: ['message'], operation: operations, ...extra },
 });
+
+const replyToMessageIdOption = {
+	displayName: 'Reply To Message ID',
+	name: 'replyToMessageId',
+	type: 'string' as const,
+	default: '',
+	placeholder: 'e.g. wamid.HBgMMzU4...',
+	description:
+		'The ID of a received message to reply to. WhatsApp shows the reply quoting that message.',
+};
 
 export class Automiq implements INodeType {
 	description: INodeTypeDescription = {
@@ -55,6 +65,12 @@ export class Automiq implements INodeType {
 						description: 'Mark a received message as read, optionally showing "typing..."',
 					},
 					{
+						name: 'Send Media',
+						value: 'sendMedia',
+						action: 'Send a media message',
+						description: 'Send an image, document, audio or video to a WhatsApp user',
+					},
+					{
 						name: 'Send Text',
 						value: 'sendText',
 						action: 'Send a text message',
@@ -72,7 +88,7 @@ export class Automiq implements INodeType {
 				default: '',
 				description:
 					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-				displayOptions: showFor('sendText', 'markAsRead'),
+				displayOptions: showFor(['sendText', 'sendMedia', 'markAsRead']),
 			},
 			{
 				displayName: 'Recipient Phone Number',
@@ -83,7 +99,7 @@ export class Automiq implements INodeType {
 				placeholder: 'e.g. 16505551234',
 				description:
 					'The WhatsApp number to send to, in international format with the country code. Spaces, dashes and a leading + are removed.',
-				displayOptions: showFor('sendText'),
+				displayOptions: showFor(['sendText', 'sendMedia']),
 			},
 			{
 				displayName: 'Text',
@@ -93,7 +109,7 @@ export class Automiq implements INodeType {
 				required: true,
 				default: '',
 				description: 'The message text, up to 4096 characters',
-				displayOptions: showFor('sendText'),
+				displayOptions: showFor(['sendText']),
 			},
 			{
 				displayName: 'Options',
@@ -101,7 +117,7 @@ export class Automiq implements INodeType {
 				type: 'collection',
 				placeholder: 'Add option',
 				default: {},
-				displayOptions: showFor('sendText'),
+				displayOptions: showFor(['sendText']),
 				options: [
 					{
 						displayName: 'Link Preview',
@@ -110,16 +126,79 @@ export class Automiq implements INodeType {
 						default: false,
 						description: 'Whether to show a preview of the first link in the text',
 					},
-					{
-						displayName: 'Reply To Message ID',
-						name: 'replyToMessageId',
-						type: 'string',
-						default: '',
-						placeholder: 'e.g. wamid.HBgMMzU4...',
-						description:
-							'The ID of a received message to reply to. WhatsApp shows the reply quoting that message.',
-					},
+					replyToMessageIdOption,
 				],
+			},
+			{
+				displayName: 'Media Type',
+				name: 'mediaType',
+				type: 'options',
+				options: [
+					{ name: 'Audio', value: 'audio', description: 'AAC, AMR, MP3, M4A or OGG (Opus), up to 16 MB' },
+					{ name: 'Document', value: 'document', description: 'PDF, Word, Excel, PowerPoint or TXT, up to 100 MB' },
+					{ name: 'Image', value: 'image', description: 'JPEG or PNG, up to 5 MB' },
+					{ name: 'Video', value: 'video', description: 'MP4 or 3GP (H.264 and AAC), up to 16 MB' },
+				],
+				default: 'image',
+				displayOptions: showFor(['sendMedia']),
+			},
+			{
+				displayName: 'Media Source',
+				name: 'mediaSource',
+				type: 'options',
+				options: [
+					{ name: 'Media ID', value: 'id', description: 'The ID of media already uploaded to WhatsApp' },
+					{ name: 'URL', value: 'link', description: 'A public link that starts with https://' },
+				],
+				default: 'link',
+				displayOptions: showFor(['sendMedia']),
+			},
+			{
+				displayName: 'Media URL',
+				name: 'mediaUrl',
+				type: 'string',
+				required: true,
+				default: '',
+				placeholder: 'e.g. https://example.com/photo.jpg',
+				description: 'A public HTTPS link to the file. WhatsApp downloads it from there.',
+				displayOptions: showFor(['sendMedia'], { mediaSource: ['link'] }),
+			},
+			{
+				displayName: 'Media ID',
+				name: 'mediaId',
+				type: 'string',
+				required: true,
+				default: '',
+				placeholder: 'e.g. 1234567890123456',
+				description: 'The ID of media already uploaded to WhatsApp',
+				displayOptions: showFor(['sendMedia'], { mediaSource: ['id'] }),
+			},
+			{
+				displayName: 'Caption',
+				name: 'caption',
+				type: 'string',
+				typeOptions: { rows: 2 },
+				default: '',
+				description: 'Text shown under the media, up to 1024 characters',
+				displayOptions: showFor(['sendMedia'], { mediaType: ['document', 'image', 'video'] }),
+			},
+			{
+				displayName: 'File Name',
+				name: 'filename',
+				type: 'string',
+				default: '',
+				placeholder: 'e.g. invoice-march.pdf',
+				description: 'The file name the user sees. Include the extension so WhatsApp shows the right icon.',
+				displayOptions: showFor(['sendMedia'], { mediaType: ['document'] }),
+			},
+			{
+				displayName: 'Options',
+				name: 'mediaOptions',
+				type: 'collection',
+				placeholder: 'Add option',
+				default: {},
+				displayOptions: showFor(['sendMedia']),
+				options: [replyToMessageIdOption],
 			},
 			{
 				displayName: 'Message ID',
@@ -130,7 +209,7 @@ export class Automiq implements INodeType {
 				placeholder: 'e.g. wamid.HBgMMzU4...',
 				description:
 					'The ID of the received message to mark as read, for example from the AutomiQ for WhatsApp Trigger',
-				displayOptions: showFor('markAsRead'),
+				displayOptions: showFor(['markAsRead']),
 			},
 			{
 				displayName: 'Show Typing Indicator',
@@ -139,7 +218,7 @@ export class Automiq implements INodeType {
 				default: false,
 				description:
 					'Whether to also show "typing..." to the user. WhatsApp hides it when you reply, or after 25 seconds. Only use it when a reply follows.',
-				displayOptions: showFor('markAsRead'),
+				displayOptions: showFor(['markAsRead']),
 			},
 		],
 	};
@@ -176,6 +255,21 @@ export class Automiq implements INodeType {
 						to: this.getNodeParameter('to', i) as string,
 						text: this.getNodeParameter('text', i) as string,
 						previewUrl: options.previewUrl as boolean | undefined,
+						replyToMessageId: options.replyToMessageId as string | undefined,
+					});
+				} else if (resource === 'message' && operation === 'sendMedia') {
+					const mediaType = this.getNodeParameter('mediaType', i) as string;
+					const source = this.getNodeParameter('mediaSource', i) as string;
+					const options = this.getNodeParameter('mediaOptions', i, {}) as IDataObject;
+					body = buildMediaMessage({
+						to: this.getNodeParameter('to', i) as string,
+						mediaType,
+						source,
+						value: this.getNodeParameter(source === 'id' ? 'mediaId' : 'mediaUrl', i) as string,
+						caption:
+							mediaType === 'audio' ? undefined : (this.getNodeParameter('caption', i, '') as string),
+						filename:
+							mediaType === 'document' ? (this.getNodeParameter('filename', i, '') as string) : undefined,
 						replyToMessageId: options.replyToMessageId as string | undefined,
 					});
 				} else if (resource === 'message' && operation === 'markAsRead') {
