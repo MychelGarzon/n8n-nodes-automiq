@@ -21,6 +21,7 @@ export class Automiq implements INodeType {
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
 		usableAsTool: true,
+		credentials: [{ name: 'automiqApi', required: true }],
 		properties: [
 			{
 				displayName:
