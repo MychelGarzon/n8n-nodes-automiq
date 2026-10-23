@@ -220,3 +220,107 @@ export function buildMediaMessage(input: MediaMessageInput): Record<string, unkn
 		...(replyTo ? { context: { message_id: replyTo } } : {}),
 	};
 }
+
+// Template errors, confirmed in the Cloud API error list.
+Object.assign(META_ERRORS, {
+	132000: {
+		message: 'The template parameters do not match the template',
+		description:
+			'The number of Body Parameters must match the number of variables in the template, for example {{1}} and {{2}}.',
+	},
+	132001: {
+		message: 'This template does not exist or is not approved',
+		description: 'Check the template name and language, and that the template is approved in WhatsApp Manager.',
+	},
+});
+
+export interface TemplateParameterInput {
+	name?: string;
+	value?: string;
+}
+
+export interface TemplateMessageInput {
+	to: string;
+	template: string;
+	bodyParameters?: TemplateParameterInput[];
+	componentsJson?: unknown;
+}
+
+/** Splits "name|language_code" as used by the Template dropdown and by n8n's built-in WhatsApp node. */
+export function parseTemplateRef(value: string): { name: string; code: string } {
+	const raw = String(value ?? '').trim();
+	const separator = raw.lastIndexOf('|');
+	const name = separator > 0 ? raw.slice(0, separator).trim() : '';
+	const code = separator > 0 ? raw.slice(separator + 1).trim() : '';
+	if (!/^[a-z0-9_]+$/.test(name) || !/^[a-z]{2,3}(_[A-Za-z]{2,4})?$/.test(code)) {
+		throw new Error(
+			`"${raw}" is not a valid template. Pick one from the list, or use name|language_code, for example hello_world|en_US.`,
+		);
+	}
+	return { name, code };
+}
+
+function parseComponents(componentsJson: unknown): unknown[] | undefined {
+	if (componentsJson === undefined || componentsJson === null) return undefined;
+	if (typeof componentsJson === 'string' && !componentsJson.trim()) return undefined;
+
+	let parsed: unknown = componentsJson;
+	if (typeof componentsJson === 'string') {
+		let valid = true;
+		try {
+			parsed = JSON.parse(componentsJson);
+		} catch {
+			valid = false;
+		}
+		if (!valid) throw new Error('Components (JSON) is not valid JSON.');
+	}
+	if (!Array.isArray(parsed) || parsed.some((c) => typeof c !== 'object' || c === null || !('type' in c))) {
+		throw new Error(
+			'Components (JSON) must be an array of components, each with a "type", as in Meta\'s template documentation.',
+		);
+	}
+	return parsed.length > 0 ? parsed : undefined;
+}
+
+function bodyComponent(parameters: TemplateParameterInput[]): unknown[] | undefined {
+	if (parameters.length === 0) return undefined;
+
+	const named = parameters.filter((p) => p.name?.trim()).length;
+	if (named > 0 && named < parameters.length) {
+		throw new Error(
+			'Use either named parameters (all with a Name) or numbered parameters (all without a Name), not both.',
+		);
+	}
+
+	return [
+		{
+			type: 'body',
+			parameters: parameters.map((p, index) => {
+				const text = String(p.value ?? '');
+				if (!text.trim()) {
+					throw new Error(`Body parameter ${index + 1} is empty. WhatsApp does not accept empty values.`);
+				}
+				const name = p.name?.trim();
+				return { type: 'text', ...(name ? { parameter_name: name } : {}), text };
+			}),
+		},
+	];
+}
+
+/** The Meta Cloud API body for a template message. Components (JSON) replaces Body Parameters when set. */
+export function buildTemplateMessage(input: TemplateMessageInput): Record<string, unknown> {
+	const { name, code } = parseTemplateRef(input.template);
+	const components = parseComponents(input.componentsJson) ?? bodyComponent(input.bodyParameters ?? []);
+
+	return {
+		messaging_product: 'whatsapp',
+		recipient_type: 'individual',
+		to: normalizeRecipient(input.to),
+		type: 'template',
+		template: {
+			name,
+			language: { code },
+			...(components ? { components } : {}),
+		},
+	};
+}
