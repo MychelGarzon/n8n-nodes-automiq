@@ -148,12 +148,18 @@ export class AutomiqTrigger implements INodeType {
 			return { noWebhookResponse: true };
 		}
 
-		let payload: IDataObject;
+		let parsed: unknown;
 		try {
-			payload = JSON.parse((rawBody as Buffer).toString('utf8')) as IDataObject;
+			parsed = JSON.parse(rawBody?.toString('utf8') ?? '');
 		} catch {
-			payload = {};
+			parsed = undefined;
 		}
+		if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+			const res = this.getResponseObject();
+			res.status(400).json({ error: 'invalid_body', reason: 'invalid_json' }).end();
+			return { noWebhookResponse: true };
+		}
+		const payload = parsed as IDataObject;
 
 		const options = this.getNodeParameter('options', {}) as IDataObject;
 
