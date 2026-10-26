@@ -72,11 +72,11 @@ Free-form messages can only be sent within 24 hours after the customer last wrot
 
 Templates are the only way to start a conversation, or to write to someone after the 24-hour window.
 
-| Field                       | Notes                                                                                                                                                                                   |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------ |
-| Template                    | Lists the **approved** templates of the sender number's WhatsApp account, for example `order_update (en)`. In an expression, use `name                                                  | language_code`, for example `order_update | en_US`. This is the same format n8n's built-in WhatsApp node uses. |
-| Body Parameters             | One value per variable in the template body. For numbered variables like `{{1}}`, leave **Name** empty and keep the order. For named variables like `{{first_name}}`, fill in **Name**. |
-| Options > Components (JSON) | Advanced: the full `components` array from Meta's template documentation, for header media and buttons. Replaces Body Parameters when set.                                              |
+| Field                       | Notes                                                                                                                                                                                                                            |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------ |
+| Template                    | Lists the **approved** templates of the sender number's WhatsApp account, for example `order_update (en)`. In an expression, use `name                                                                                           | language_code`, for example `order_update | en_US`. This is the same format n8n's built-in WhatsApp node uses. |
+| Body Parameters             | One value per variable in the template body. For numbered variables like `{{1}}`, leave **Name** empty and keep the order. For named variables like `{{first_name}}`, fill in **Name** without braces, for example `first_name`. |
+| Options > Components (JSON) | Advanced: the full `components` array from Meta's template documentation, for header media and buttons. Replaces Body Parameters when set.                                                                                       |
 
 ### Mark as Read
 
@@ -151,9 +151,10 @@ Depending on the message type, it also has `media_id`, `mime_type`, `caption` an
 
 | Option               | Effect                                                                                                                  |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Ignore Duplicates    | Skips messages and statuses that already started this workflow. Only works when the workflow is active.                 |
 | Include Portal Pings | Also starts the workflow for the portal's **Send test delivery**. Off by default. Pings are always answered with `200`. |
 | Raw Payload          | Outputs the whole delivery as one item instead of one item per message or status.                                       |
+
+**Duplicates:** WhatsApp can deliver the same event more than once. To skip repeats, add n8n's **Remove Duplicates** node after the trigger, with **Operation** set to **Remove Items Processed in Previous Executions** and **Value to Dedupe On** set to `{{ $json.message_id }}`. For statuses, use `{{ $json.message_id }}-{{ $json.status }}`.
 
 ### Debugging with real messages
 
@@ -218,6 +219,14 @@ The nodes translate the most common errors into plain messages. The original Wha
 - [Changelog](CHANGELOG.md)
 
 ## Version history
+
+**0.2.3**: fixes from live testing.
+
+- Trigger: removed the Ignore Duplicates option. Current n8n versions do not keep what a trigger stores between deliveries, so it could not work reliably. Use n8n's Remove Duplicates node instead (see Options).
+- Send Template: a Body Parameter Name of only digits, like `1`, now counts as a numbered variable instead of failing.
+- Caption, File Name and Reply To Message ID accept numbers from expressions.
+- Shorter action names: Send text message, Send media message, Send template message, Mark message as read.
+- The example workflow no longer has a fixed webhook ID.
 
 **0.2.1**: README: debugging with the portal's Test webhook URL.
 
