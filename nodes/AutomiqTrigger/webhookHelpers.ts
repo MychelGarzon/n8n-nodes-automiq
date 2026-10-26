@@ -28,10 +28,14 @@ export function verifyAutomiqSignature(input: {
 
 	const expected =
 		'sha256=' +
-		createHmac('sha256', input.secret).update(`${timestamp}.`, 'utf8').update(input.rawBody).digest('hex');
+		createHmac('sha256', input.secret)
+			.update(`${timestamp}.`, 'utf8')
+			.update(input.rawBody)
+			.digest('hex');
 	const a = Buffer.from(signature, 'utf8');
 	const b = Buffer.from(expected, 'utf8');
-	if (a.length !== b.length || !timingSafeEqual(a, b)) return { valid: false, reason: 'bad_signature' };
+	if (a.length !== b.length || !timingSafeEqual(a, b))
+		return { valid: false, reason: 'bad_signature' };
 
 	return { valid: true };
 }
@@ -44,12 +48,48 @@ export function isPing(payload: unknown): boolean {
 export type EventKind = 'messages' | 'statuses' | 'other';
 export type FlatEvent = Record<string, unknown> & { event: string };
 
+interface WebhookChange {
+	field?: string;
+	value?: Record<string, unknown>;
+}
+
 interface WebhookPayload {
-	entry?: Array<{ id?: string; changes?: Array<{ field?: string; value?: Record<string, unknown> }> }>;
+	entry?: Array<{ id?: string; changes?: WebhookChange[] }>;
 }
 
 type Dict = Record<string, unknown>;
 const asDict = (v: unknown): Dict => (v && typeof v === 'object' ? (v as Dict) : {});
+const asArray = (v: unknown): Dict[] => (Array.isArray(v) ? (v as Dict[]) : []);
+
+const MEDIA_MESSAGE_TYPES = ['image', 'document', 'audio', 'video', 'sticker'];
+const MEDIA_FIELDS = {
+	id: 'media_id',
+	mime_type: 'mime_type',
+	caption: 'caption',
+	filename: 'filename',
+};
+const LOCATION_FIELDS = {
+	latitude: 'latitude',
+	longitude: 'longitude',
+	name: 'location_name',
+	address: 'address',
+};
+const REACTION_FIELDS = { emoji: 'emoji', message_id: 'reacted_message_id' };
+
+/** Copies each listed key from source to target under its new name, only when it is defined. */
+function copyDefined(target: Dict, source: Dict, keys: Record<string, string>): void {
+	for (const [from, to] of Object.entries(keys)) {
+		if (source[from] !== undefined) target[to] = source[from];
+	}
+}
+
+/** The timestamp as a number, or nothing when it is missing or not numeric. */
+function timestampField(value: unknown): Dict {
+	if (typeof value !== 'string' && typeof value !== 'number') return {};
+	if (value === '') return {};
+	const n = Number(value);
+	return Number.isFinite(n) ? { timestamp: n } : {};
+}
 
 /** The readable parts of one incoming message. Optional keys are left out, not undefined. */
 function messageFields(m: Dict): Dict {
@@ -61,28 +101,89 @@ function messageFields(m: Dict): Dict {
 	if (type === 'button') out.text = asDict(m.button).text;
 	if (type === 'interactive') {
 		const i = asDict(m.interactive);
-		const reply = asDict(i.button_reply ?? i.list_reply);
-		if (reply.title !== undefined) out.text = reply.title;
-		if (reply.id !== undefined) out.reply_id = reply.id;
+		copyDefined(out, asDict(i.button_reply ?? i.list_reply), { title: 'text', id: 'reply_id' });
 	}
-	if (['image', 'document', 'audio', 'video', 'sticker'].includes(type)) {
-		if (content.id !== undefined) out.media_id = content.id;
-		if (content.mime_type !== undefined) out.mime_type = content.mime_type;
-		if (content.caption !== undefined) out.caption = content.caption;
-		if (content.filename !== undefined) out.filename = content.filename;
-	}
-	if (type === 'location') {
-		for (const key of ['latitude', 'longitude', 'name', 'address']) {
-			if (content[key] !== undefined) out[key === 'name' ? 'location_name' : key] = content[key];
-		}
-	}
-	if (type === 'reaction') {
-		if (content.emoji !== undefined) out.emoji = content.emoji;
-		if (content.message_id !== undefined) out.reacted_message_id = content.message_id;
-	}
-	const context = asDict(m.context);
-	if (context.id !== undefined) out.reply_to_message_id = context.id;
+	if (MEDIA_MESSAGE_TYPES.includes(type)) copyDefined(out, content, MEDIA_FIELDS);
+	if (type === 'location') copyDefined(out, content, LOCATION_FIELDS);
+	if (type === 'reaction') copyDefined(out, content, REACTION_FIELDS);
+	if (Array.isArray(m.errors)) out.errors = m.errors;
+	copyDefined(out, asDict(m.context), { id: 'reply_to_message_id' });
 	return out;
+}
+
+/** Which number and account the change belongs to. */
+function whereFields(entryId: string | undefined, value: Dict): Dict {
+	const where: Dict = {};
+	copyDefined(where, asDict(value.metadata), {
+		phone_number_id: 'phone_number_id',
+		display_phone_number: 'display_phone_number',
+	});
+	if (entryId !== undefined) where.waba_id = entryId;
+	return where;
+}
+
+function contactNames(value: Dict): Map<string, string> {
+	const names = new Map<string, string>();
+	for (const c of asArray(value.contacts)) {
+		const name = asDict(c.profile).name;
+		if (typeof c.wa_id === 'string' && typeof name === 'string') names.set(c.wa_id, name);
+	}
+	return names;
+}
+
+function messageEvents(value: Dict, where: Dict): FlatEvent[] {
+	const names = contactNames(value);
+	return asArray(value.messages).map((m) => {
+		const from = m.from as string | undefined;
+		return {
+			event: 'message',
+			message_id: m.id,
+			...(from !== undefined ? { from } : {}),
+			...(m.from_user_id !== undefined ? { from_user_id: m.from_user_id } : {}),
+			...(from && names.has(from) ? { name: names.get(from) } : {}),
+			type: m.type,
+			...timestampField(m.timestamp),
+			...messageFields(m),
+			...where,
+			raw: m,
+		};
+	});
+}
+
+function statusEvents(value: Dict, where: Dict): FlatEvent[] {
+	return asArray(value.statuses).map((s) => ({
+		event: 'status',
+		message_id: s.id,
+		status: s.status,
+		...(s.recipient_id !== undefined ? { recipient_id: s.recipient_id } : {}),
+		...(s.recipient_user_id !== undefined ? { recipient_user_id: s.recipient_user_id } : {}),
+		...timestampField(s.timestamp),
+		...(Array.isArray(s.errors) ? { errors: s.errors } : {}),
+		...where,
+		raw: s,
+	}));
+}
+
+/** Messages and statuses in the same change are both kept. Anything else is an "other" event. */
+function changeEvents(
+	change: WebhookChange,
+	entryId: string | undefined,
+	kinds: EventKind[],
+): FlatEvent[] {
+	const value = asDict(change.value);
+	const where = whereFields(entryId, value);
+	const hasMessages = asArray(value.messages).length > 0;
+	const hasStatuses = asArray(value.statuses).length > 0;
+
+	if (change.field !== 'messages' || (!hasMessages && !hasStatuses)) {
+		return kinds.includes('other')
+			? [{ event: 'other', field: change.field, ...where, raw: value }]
+			: [];
+	}
+	return [
+		...(kinds.includes('messages') ? messageEvents(value, where) : []),
+		...(kinds.includes('statuses') ? statusEvents(value, where) : []),
+	];
 }
 
 /** One item per message, status or other change. Each item also keeps Meta's original object in "raw". */
@@ -90,60 +191,7 @@ export function flattenEvents(payload: unknown, kinds: EventKind[]): FlatEvent[]
 	const out: FlatEvent[] = [];
 	for (const entry of (payload as WebhookPayload)?.entry ?? []) {
 		for (const change of entry.changes ?? []) {
-			const value = asDict(change.value);
-			const metadata = asDict(value.metadata);
-			const where: Dict = {
-				...(metadata.phone_number_id !== undefined ? { phone_number_id: metadata.phone_number_id } : {}),
-				...(metadata.display_phone_number !== undefined
-					? { display_phone_number: metadata.display_phone_number }
-					: {}),
-				...(entry.id !== undefined ? { waba_id: entry.id } : {}),
-			};
-
-			const messages = Array.isArray(value.messages) ? (value.messages as Dict[]) : [];
-			const statuses = Array.isArray(value.statuses) ? (value.statuses as Dict[]) : [];
-
-			if (change.field === 'messages' && messages.length > 0) {
-				if (!kinds.includes('messages')) continue;
-				const names = new Map<string, string>();
-				for (const c of Array.isArray(value.contacts) ? (value.contacts as Dict[]) : []) {
-					const name = asDict(c.profile).name;
-					if (typeof c.wa_id === 'string' && typeof name === 'string') names.set(c.wa_id, name);
-				}
-				for (const m of messages) {
-					const from = m.from as string | undefined;
-					out.push({
-						event: 'message',
-						message_id: m.id,
-						...(from !== undefined ? { from } : {}),
-						...(m.from_user_id !== undefined ? { from_user_id: m.from_user_id } : {}),
-						...(from && names.has(from) ? { name: names.get(from) } : {}),
-						type: m.type,
-						timestamp: Number(m.timestamp),
-						...messageFields(m),
-						...where,
-						raw: m,
-					});
-				}
-			} else if (change.field === 'messages' && statuses.length > 0) {
-				if (!kinds.includes('statuses')) continue;
-				for (const s of statuses) {
-					out.push({
-						event: 'status',
-						message_id: s.id,
-						status: s.status,
-						...(s.recipient_id !== undefined ? { recipient_id: s.recipient_id } : {}),
-						...(s.recipient_user_id !== undefined ? { recipient_user_id: s.recipient_user_id } : {}),
-						timestamp: Number(s.timestamp),
-						...(Array.isArray(s.errors) ? { errors: s.errors } : {}),
-						...where,
-						raw: s,
-					});
-				}
-			} else {
-				if (!kinds.includes('other')) continue;
-				out.push({ event: 'other', field: change.field, ...where, raw: value });
-			}
+			out.push(...changeEvents(change, entry.id, kinds));
 		}
 	}
 	return out;
@@ -159,7 +207,10 @@ export function dedupeKey(event: FlatEvent): string | undefined {
 }
 
 /** Drops events seen before and returns the updated list of seen keys (newest last, capped). */
-export function filterNewEvents(events: FlatEvent[], seen: string[]): { fresh: FlatEvent[]; seen: string[] } {
+export function filterNewEvents(
+	events: FlatEvent[],
+	seen: string[],
+): { fresh: FlatEvent[]; seen: string[] } {
 	const known = new Set(seen);
 	const fresh: FlatEvent[] = [];
 	const updated = [...seen];
