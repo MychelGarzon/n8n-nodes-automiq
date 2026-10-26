@@ -94,65 +94,44 @@ interface ErrorBody {
 	};
 }
 
-/** Turns a gateway or Meta error body into a clear message. Returns undefined for unknown shapes. */
-export function describeApiError(httpCode: number | undefined, data: unknown): ApiErrorText | undefined {
-	const err = (data as ErrorBody | undefined)?.error;
-	if (!err) return undefined;
-
-	if (err.type === 'AutomiQGatewayError') {
-		const status = httpCode ?? err.code;
-		const gatewayMessage = err.message ?? '';
-		if (status === 401) {
-			return {
-				message: 'Invalid or revoked AutomiQ API key',
-				description:
-					'Create a new key in the AutomiQ portal under API keys and update the AutomiQ API credential.',
-			};
-		}
-		if (status === 403 && /suspended/i.test(gatewayMessage)) {
-			return {
-				message: 'This AutomiQ account is suspended',
-				description: 'Contact AutomiQ support.',
-			};
-		}
-		if (status === 403 && /first path segment|not one of your active numbers/i.test(gatewayMessage)) {
-			return {
-				message: 'This phone number is not linked to your AutomiQ account',
-				description: 'Pick a number from the Sender Phone Number list, or check the phone number ID.',
-			};
-		}
-		if (status === 413) {
-			return { message: 'The request is too large', description: gatewayMessage };
-		}
-		if (status === 502) {
-			return {
-				message: 'AutomiQ could not reach WhatsApp',
-				description: 'This is usually temporary. Try again in a moment.',
-			};
-		}
-		return { message: 'AutomiQ Gateway error', description: gatewayMessage };
-	}
-
-	if (typeof err.code === 'number') {
-		const metaText = [err.message, err.error_data?.details].filter(Boolean).join(': ');
-		const known = META_ERRORS[err.code];
-		if (known) {
-			return {
-				message: known.message,
-				description: `${known.description} WhatsApp said: ${metaText} (code ${err.code}).`,
-			};
-		}
+/** Clear messages for errors returned by the AutomiQ Gateway itself. */
+function describeGatewayError(status: number | undefined, gatewayMessage: string): ApiErrorText {
+	if (status === 401) {
 		return {
-			message: 'WhatsApp rejected the request',
-			description: `${metaText} (code ${err.code}).`,
+			message: 'Invalid or revoked AutomiQ API key',
+			description:
+				'Create a new key in the AutomiQ portal under API keys and update the AutomiQ API credential.',
 		};
 	}
-
-	return undefined;
+	if (status === 403 && /suspended/i.test(gatewayMessage)) {
+		return {
+			message: 'This AutomiQ account is suspended',
+			description: 'Contact AutomiQ support.',
+		};
+	}
+	if (status === 403 && /first path segment|not one of your active numbers/i.test(gatewayMessage)) {
+		return {
+			message: 'This phone number is not linked to your AutomiQ account',
+			description: 'Pick a number from the Sender Phone Number list, or check the phone number ID.',
+		};
+	}
+	if (status === 413) {
+		return { message: 'The request is too large', description: gatewayMessage };
+	}
+	if (status === 502) {
+		return {
+			message: 'AutomiQ could not reach WhatsApp',
+			description: 'This is usually temporary. Try again in a moment.',
+		};
+	}
+	return { message: 'AutomiQ Gateway rejected the request', description: gatewayMessage };
 }
 
 /** The Meta Cloud API body that marks a received message as read, optionally with "typing...". */
-export function buildMarkAsRead(messageId: string, showTypingIndicator = false): Record<string, unknown> {
+export function buildMarkAsRead(
+	messageId: string,
+	showTypingIndicator = false,
+): Record<string, unknown> {
 	const id = String(messageId ?? '').trim();
 	if (!id) {
 		throw new Error(
@@ -193,12 +172,16 @@ export function buildMediaMessage(input: MediaMessageInput): Record<string, unkn
 	const media: Record<string, unknown> = {};
 	if (input.source === 'link') {
 		if (!HTTPS_URL.test(value)) {
-			throw new Error(`"${value}" is not a valid URL. Use a public link that starts with https://.`);
+			throw new Error(
+				`"${value}" is not a valid URL. Use a public link that starts with https://.`,
+			);
 		}
 		media.link = value;
 	} else if (input.source === 'id') {
 		if (!/^\d+$/.test(value)) {
-			throw new Error(`"${value}" is not a valid media ID. A WhatsApp media ID contains only digits.`);
+			throw new Error(
+				`"${value}" is not a valid media ID. A WhatsApp media ID contains only digits.`,
+			);
 		}
 		media.id = value;
 	} else {
@@ -241,7 +224,8 @@ Object.assign(META_ERRORS, {
 	},
 	132001: {
 		message: 'This template does not exist or is not approved',
-		description: 'Check the template name and language, and that the template is approved in WhatsApp Manager.',
+		description:
+			'Check the template name and language, and that the template is approved in WhatsApp Manager.',
 	},
 });
 
@@ -285,7 +269,10 @@ function parseComponents(componentsJson: unknown): unknown[] | undefined {
 		}
 		if (!valid) throw new Error('Components (JSON) is not valid JSON.');
 	}
-	if (!Array.isArray(parsed) || parsed.some((c) => typeof c !== 'object' || c === null || !('type' in c))) {
+	if (
+		!Array.isArray(parsed) ||
+		parsed.some((c) => typeof c !== 'object' || c === null || !('type' in c))
+	) {
 		throw new Error(
 			'Components (JSON) must be an array of components, each with a "type", as in Meta\'s template documentation.',
 		);
@@ -309,7 +296,9 @@ function bodyComponent(parameters: TemplateParameterInput[]): unknown[] | undefi
 			parameters: parameters.map((p, index) => {
 				const text = String(p.value ?? '');
 				if (!text.trim()) {
-					throw new Error(`Body parameter ${index + 1} is empty. WhatsApp does not accept empty values.`);
+					throw new Error(
+						`Body parameter ${index + 1} is empty. WhatsApp does not accept empty values.`,
+					);
 				}
 				const name = p.name?.trim();
 				return { type: 'text', ...(name ? { parameter_name: name } : {}), text };
@@ -321,7 +310,8 @@ function bodyComponent(parameters: TemplateParameterInput[]): unknown[] | undefi
 /** The Meta Cloud API body for a template message. Components (JSON) replaces Body Parameters when set. */
 export function buildTemplateMessage(input: TemplateMessageInput): Record<string, unknown> {
 	const { name, code } = parseTemplateRef(input.template);
-	const components = parseComponents(input.componentsJson) ?? bodyComponent(input.bodyParameters ?? []);
+	const components =
+		parseComponents(input.componentsJson) ?? bodyComponent(input.bodyParameters ?? []);
 
 	return {
 		messaging_product: 'whatsapp',
@@ -334,4 +324,34 @@ export function buildTemplateMessage(input: TemplateMessageInput): Record<string
 			...(components ? { components } : {}),
 		},
 	};
+}
+
+/** Turns a gateway or Meta error body into a clear message. Returns undefined for unknown shapes. */
+export function describeApiError(
+	httpCode: number | undefined,
+	data: unknown,
+): ApiErrorText | undefined {
+	const err = (data as ErrorBody | undefined)?.error;
+	if (!err) return undefined;
+
+	if (err.type === 'AutomiQGatewayError') {
+		return describeGatewayError(httpCode ?? err.code, err.message ?? '');
+	}
+
+	if (typeof err.code === 'number') {
+		const metaText = [err.message, err.error_data?.details].filter(Boolean).join(': ');
+		const known = META_ERRORS[err.code];
+		if (known) {
+			return {
+				message: known.message,
+				description: `${known.description} WhatsApp said: ${metaText} (code ${err.code}).`,
+			};
+		}
+		return {
+			message: 'WhatsApp rejected the request',
+			description: `${metaText} (code ${err.code}).`,
+		};
+	}
+
+	return undefined;
 }
