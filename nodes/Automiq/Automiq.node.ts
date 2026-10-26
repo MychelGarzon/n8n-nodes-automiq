@@ -154,25 +154,25 @@ export class Automiq implements INodeType {
 					{
 						name: 'Mark as Read',
 						value: 'markAsRead',
-						action: 'Mark a message as read',
+						action: 'Mark message as read',
 						description: 'Mark a received message as read, optionally showing "typing..."',
 					},
 					{
 						name: 'Send Media',
 						value: 'sendMedia',
-						action: 'Send a media message',
+						action: 'Send media message',
 						description: 'Send an image, document, audio or video to a WhatsApp user',
 					},
 					{
 						name: 'Send Template',
 						value: 'sendTemplate',
-						action: 'Send a template message',
+						action: 'Send template message',
 						description: 'Send an approved template, also outside the 24-hour window',
 					},
 					{
 						name: 'Send Text',
 						value: 'sendText',
-						action: 'Send a text message',
+						action: 'Send text message',
 						description: 'Send a text message to a WhatsApp user',
 					},
 				],
@@ -345,7 +345,7 @@ export class Automiq implements INodeType {
 								default: '',
 								placeholder: 'e.g. first_name',
 								description:
-									'Only for named variables like {{first_name}}. Leave empty for numbered variables like {{1}}, then the order counts.',
+									'Only for named variables. Type the name without braces, for example first_name. Leave empty for numbered variables like {{1}}, then the order counts.',
 							},
 							{
 								displayName: 'Value',
