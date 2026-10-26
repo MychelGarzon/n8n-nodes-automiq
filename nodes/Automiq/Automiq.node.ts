@@ -36,6 +36,89 @@ const replyToMessageIdOption = {
 		'The ID of a received message to reply to. WhatsApp shows the reply quoting that message.',
 };
 
+function getPhoneNumberId(this: IExecuteFunctions, i: number): string {
+	const raw = this.getNodeParameter('phoneNumberId', i);
+	const value = typeof raw === 'string' || typeof raw === 'number' ? String(raw).trim() : '';
+	if (!value) {
+		throw new NodeOperationError(this.getNode(), 'Choose a Sender Phone Number', {
+			itemIndex: i,
+			description:
+				'Pick your number from the Sender Phone Number list. If you use an expression, check that it returns the Phone Number ID.',
+		});
+	}
+	return value;
+}
+
+function buildRequestBody(
+	this: IExecuteFunctions,
+	resource: string,
+	operation: string,
+	i: number,
+): Record<string, unknown> {
+	if (resource !== 'message') {
+		throw new NodeOperationError(this.getNode(), `The resource "${resource}" is not supported`, {
+			itemIndex: i,
+		});
+	}
+	switch (operation) {
+		case 'sendText': {
+			const options = this.getNodeParameter('options', i, {}) as IDataObject;
+			return buildTextMessage({
+				to: this.getNodeParameter('to', i) as string,
+				text: this.getNodeParameter('text', i) as string,
+				previewUrl: options.previewUrl as boolean | undefined,
+				replyToMessageId: options.replyToMessageId as string | undefined,
+			});
+		}
+		case 'sendMedia': {
+			const mediaType = this.getNodeParameter('mediaType', i) as string;
+			const source = this.getNodeParameter('mediaSource', i) as string;
+			const options = this.getNodeParameter('mediaOptions', i, {}) as IDataObject;
+			return buildMediaMessage({
+				to: this.getNodeParameter('to', i) as string,
+				mediaType,
+				source,
+				value: this.getNodeParameter(source === 'id' ? 'mediaId' : 'mediaUrl', i) as string,
+				caption:
+					mediaType === 'audio' ? undefined : (this.getNodeParameter('caption', i, '') as string),
+				filename:
+					mediaType === 'document'
+						? (this.getNodeParameter('filename', i, '') as string)
+						: undefined,
+				replyToMessageId: options.replyToMessageId as string | undefined,
+			});
+		}
+		case 'sendTemplate': {
+			const options = this.getNodeParameter('templateOptions', i, {}) as IDataObject;
+			const parameters =
+				(
+					this.getNodeParameter('bodyParameters', i, {}) as {
+						parameter?: Array<{ name?: string; value?: string }>;
+					}
+				).parameter ?? [];
+			return buildTemplateMessage({
+				to: this.getNodeParameter('to', i) as string,
+				template: this.getNodeParameter('template', i) as string,
+				bodyParameters: parameters,
+				componentsJson: options.componentsJson,
+			});
+		}
+		case 'markAsRead':
+			return buildMarkAsRead(
+				this.getNodeParameter('messageId', i) as string,
+				this.getNodeParameter('showTypingIndicator', i, false) as boolean,
+			);
+		default:
+			throw new NodeOperationError(
+				this.getNode(),
+				`The operation "${operation}" is not supported`,
+				{
+					itemIndex: i,
+				},
+			);
+	}
+}
+
 export class Automiq implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'AutomiQ for WhatsApp',
@@ -150,8 +233,16 @@ export class Automiq implements INodeType {
 				name: 'mediaType',
 				type: 'options',
 				options: [
-					{ name: 'Audio', value: 'audio', description: 'AAC, AMR, MP3, M4A or OGG (Opus), up to 16 MB' },
-					{ name: 'Document', value: 'document', description: 'PDF, Word, Excel, PowerPoint or TXT, up to 100 MB' },
+					{
+						name: 'Audio',
+						value: 'audio',
+						description: 'AAC, AMR, MP3, M4A or OGG (Opus), up to 16 MB',
+					},
+					{
+						name: 'Document',
+						value: 'document',
+						description: 'PDF, Word, Excel, PowerPoint or TXT, up to 100 MB',
+					},
 					{ name: 'Image', value: 'image', description: 'JPEG or PNG, up to 5 MB' },
 					{ name: 'Video', value: 'video', description: 'MP4 or 3GP (H.264 and AAC), up to 16 MB' },
 				],
@@ -163,7 +254,11 @@ export class Automiq implements INodeType {
 				name: 'mediaSource',
 				type: 'options',
 				options: [
-					{ name: 'Media ID', value: 'id', description: 'The ID of media already uploaded to WhatsApp' },
+					{
+						name: 'Media ID',
+						value: 'id',
+						description: 'The ID of media already uploaded to WhatsApp',
+					},
 					{ name: 'URL', value: 'link', description: 'A public link that starts with https://' },
 				],
 				default: 'link',
@@ -204,7 +299,8 @@ export class Automiq implements INodeType {
 				type: 'string',
 				default: '',
 				placeholder: 'e.g. invoice-march.pdf',
-				description: 'The file name the user sees. Include the extension so WhatsApp shows the right icon.',
+				description:
+					'The file name the user sees. Include the extension so WhatsApp shows the right icon.',
 				displayOptions: showFor(['sendMedia'], { mediaType: ['document'] }),
 			},
 			{
@@ -332,57 +428,8 @@ export class Automiq implements INodeType {
 			try {
 				const resource = this.getNodeParameter('resource', i) as string;
 				const operation = this.getNodeParameter('operation', i) as string;
-				const phoneNumberId = this.getNodeParameter('phoneNumberId', i) as string;
-
-				let body: Record<string, unknown>;
-				if (resource === 'message' && operation === 'sendText') {
-					const options = this.getNodeParameter('options', i, {}) as IDataObject;
-					body = buildTextMessage({
-						to: this.getNodeParameter('to', i) as string,
-						text: this.getNodeParameter('text', i) as string,
-						previewUrl: options.previewUrl as boolean | undefined,
-						replyToMessageId: options.replyToMessageId as string | undefined,
-					});
-				} else if (resource === 'message' && operation === 'sendMedia') {
-					const mediaType = this.getNodeParameter('mediaType', i) as string;
-					const source = this.getNodeParameter('mediaSource', i) as string;
-					const options = this.getNodeParameter('mediaOptions', i, {}) as IDataObject;
-					body = buildMediaMessage({
-						to: this.getNodeParameter('to', i) as string,
-						mediaType,
-						source,
-						value: this.getNodeParameter(source === 'id' ? 'mediaId' : 'mediaUrl', i) as string,
-						caption:
-							mediaType === 'audio' ? undefined : (this.getNodeParameter('caption', i, '') as string),
-						filename:
-							mediaType === 'document' ? (this.getNodeParameter('filename', i, '') as string) : undefined,
-						replyToMessageId: options.replyToMessageId as string | undefined,
-					});
-				} else if (resource === 'message' && operation === 'sendTemplate') {
-					const options = this.getNodeParameter('templateOptions', i, {}) as IDataObject;
-					const parameters = (
-						this.getNodeParameter('bodyParameters', i, {}) as {
-							parameter?: Array<{ name?: string; value?: string }>;
-						}
-					).parameter ?? [];
-					body = buildTemplateMessage({
-						to: this.getNodeParameter('to', i) as string,
-						template: this.getNodeParameter('template', i) as string,
-						bodyParameters: parameters,
-						componentsJson: options.componentsJson,
-					});
-				} else if (resource === 'message' && operation === 'markAsRead') {
-					body = buildMarkAsRead(
-						this.getNodeParameter('messageId', i) as string,
-						this.getNodeParameter('showTypingIndicator', i, false) as boolean,
-					);
-				} else {
-					throw new NodeOperationError(
-						this.getNode(),
-						`The operation "${operation}" is not supported`,
-						{ itemIndex: i },
-					);
-				}
+				const phoneNumberId = getPhoneNumberId.call(this, i);
+				const body = buildRequestBody.call(this, resource, operation, i);
 
 				const response = await automiqApiRequest.call(
 					this,
