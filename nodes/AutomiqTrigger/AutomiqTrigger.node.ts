@@ -9,7 +9,7 @@ import type {
 import { NodeConnectionTypes } from 'n8n-workflow';
 
 import type { EventKind } from './webhookHelpers';
-import { filterNewEvents, flattenEvents, isPing, verifyAutomiqSignature } from './webhookHelpers';
+import { flattenEvents, isPing, verifyAutomiqSignature } from './webhookHelpers';
 
 export class AutomiqTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -73,14 +73,6 @@ export class AutomiqTrigger implements INodeType {
 				placeholder: 'Add option',
 				default: {},
 				options: [
-					{
-						displayName: 'Ignore Duplicates',
-						name: 'ignoreDuplicates',
-						type: 'boolean',
-						default: false,
-						description:
-							'Whether to skip messages and statuses that already started this workflow. Only works when the workflow is active.',
-					},
 					{
 						displayName: 'Include Portal Pings',
 						name: 'includePings',
@@ -173,14 +165,7 @@ export class AutomiqTrigger implements INodeType {
 		}
 
 		const kinds = this.getNodeParameter('events', []) as EventKind[];
-		let events = flattenEvents(payload, kinds);
-
-		if (options.ignoreDuplicates && events.length > 0) {
-			const staticData = this.getWorkflowStaticData('node');
-			const result = filterNewEvents(events, (staticData.seenKeys as string[] | undefined) ?? []);
-			staticData.seenKeys = result.seen;
-			events = result.fresh;
-		}
+		const events = flattenEvents(payload, kinds);
 
 		if (events.length === 0) return { webhookResponse: 'OK' };
 

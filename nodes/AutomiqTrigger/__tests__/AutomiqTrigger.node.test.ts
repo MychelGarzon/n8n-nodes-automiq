@@ -307,16 +307,5 @@ describe('AutomiqTrigger webhook', () => {
 				status: 'delivered',
 			});
 		});
-
-		it('skips a delivery seen before when Ignore Duplicates is on', async () => {
-			const staticData: IDataObject = {};
-			const first = setup({ options: { ignoreDuplicates: true }, staticData });
-			const firstResult = await first.run();
-			expect(firstResult.workflowData?.[0]).toHaveLength(1);
-			expect(staticData.seenKeys).toEqual(['m:wamid.TEST1']);
-
-			const second = setup({ options: { ignoreDuplicates: true }, staticData });
-			await expect(second.run()).resolves.toEqual({ webhookResponse: 'OK' });
-		});
 	});
 });

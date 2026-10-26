@@ -1,221 +1,123 @@
 import { createHmac } from 'crypto';
 
-import { filterNewEvents, flattenEvents, isPing, verifyAutomiqSignature } from '../webhookHelpers';
+import {
+	flattenEvents,
+	isPing,
+	MAX_TIMESTAMP_SKEW_SECONDS,
+	verifyAutomiqSignature,
+} from '../webhookHelpers';
 
-const secret = 'a'.repeat(64);
-const now = 1792772500;
-const sign = (ts: string, body: string, key = secret) =>
-	'sha256=' + createHmac('sha256', key).update(`${ts}.${body}`, 'utf8').digest('hex');
+const SECRET = 'test-webhook-secret';
+const NOW = 1_800_000_000;
+const BODY = Buffer.from('{"object":"whatsapp_business_account","entry":[]}');
 
-// Shape of a real AutomiQ delivery (incoming text message), with personal data replaced.
-const messagePayload = {
-	object: 'whatsapp_business_account',
-	entry: [
-		{
-			id: '200000000000002',
-			changes: [
-				{
-					field: 'messages',
-					value: {
-						messaging_product: 'whatsapp',
-						metadata: { display_phone_number: '15550001234', phone_number_id: '100000000000001' },
-						contacts: [{ profile: { name: 'Test User' }, wa_id: '16505551234', user_id: 'US.1' }],
-						messages: [
-							{
-								from: '16505551234',
-								from_user_id: 'US.1',
-								id: 'wamid.IN1',
-								timestamp: '1792772499',
-								text: { body: 'Test read' },
-								type: 'text',
-							},
-						],
-					},
-				},
-			],
-		},
-	],
-};
+function sign(timestamp: string, body: Buffer = BODY, secret = SECRET): string {
+	return (
+		'sha256=' +
+		createHmac('sha256', secret).update(`${timestamp}.`, 'utf8').update(body).digest('hex')
+	);
+}
 
-const statusPayload = {
-	object: 'whatsapp_business_account',
-	entry: [
-		{
-			id: '200000000000002',
-			changes: [
-				{
-					field: 'messages',
-					value: {
-						metadata: { display_phone_number: '15550001234', phone_number_id: '100000000000001' },
-						statuses: [
-							{
-								id: 'wamid.OUT1',
-								status: 'delivered',
-								timestamp: '1792772500',
-								recipient_id: '16505551234',
-								recipient_user_id: 'US.1',
-							},
-						],
-					},
-				},
-			],
-		},
-	],
-};
+function check(overrides: Partial<Parameters<typeof verifyAutomiqSignature>[0]> = {}) {
+	const timestamp = String(NOW);
+	return verifyAutomiqSignature({
+		secret: SECRET,
+		timestamp,
+		signature: sign(timestamp),
+		rawBody: BODY,
+		nowSeconds: NOW,
+		...overrides,
+	});
+}
 
 describe('verifyAutomiqSignature', () => {
-	const body = JSON.stringify(messagePayload);
-	const ts = String(now);
-	const check = (overrides: Partial<Parameters<typeof verifyAutomiqSignature>[0]>) =>
-		verifyAutomiqSignature({
-			secret,
-			timestamp: ts,
-			signature: sign(ts, body),
-			rawBody: Buffer.from(body, 'utf8'),
-			nowSeconds: now,
-			...overrides,
-		});
-
 	it('accepts a correct signature', () => {
-		expect(check({})).toEqual({ valid: true });
+		expect(check()).toEqual({ valid: true });
 	});
 
-	it('rejects a wrong secret, a tampered body, a stale timestamp and missing headers', () => {
-		expect(check({ signature: sign(ts, body, 'b'.repeat(64)) })).toEqual({
+	it('accepts a timestamp right at the allowed skew', () => {
+		const timestamp = String(NOW - MAX_TIMESTAMP_SKEW_SECONDS);
+		expect(check({ timestamp, signature: sign(timestamp) })).toEqual({ valid: true });
+	});
+
+	it('rejects a signature made with another secret', () => {
+		const timestamp = String(NOW);
+		expect(check({ signature: sign(timestamp, BODY, 'other-secret') })).toEqual({
 			valid: false,
 			reason: 'bad_signature',
 		});
-		expect(check({ rawBody: Buffer.from(body.replace('Test read', 'Hacked'), 'utf8') })).toEqual({
+	});
+
+	it('rejects a body that changed after signing', () => {
+		expect(check({ rawBody: Buffer.from('{"changed":true}') })).toEqual({
 			valid: false,
 			reason: 'bad_signature',
 		});
-		expect(check({ nowSeconds: now + 301 })).toEqual({ valid: false, reason: 'stale_timestamp' });
-		expect(check({ timestamp: undefined })).toEqual({
-			valid: false,
-			reason: 'missing_or_bad_timestamp',
-		});
-		expect(check({ signature: undefined })).toEqual({ valid: false, reason: 'missing_signature' });
 	});
 
-	it('works on the raw bytes, including non-ASCII text', () => {
-		const unicode = JSON.stringify({ text: 'Hola, ¿qué tal? ✓' });
-		expect(
-			verifyAutomiqSignature({
-				secret,
-				timestamp: ts,
-				signature: sign(ts, unicode),
-				rawBody: Buffer.from(unicode, 'utf8'),
-				nowSeconds: now,
-			}),
-		).toEqual({ valid: true });
+	it('signs the exact raw bytes, so re-formatted JSON fails', () => {
+		const reformatted = Buffer.from(JSON.stringify(JSON.parse(BODY.toString()), null, 2));
+		expect(check({ rawBody: reformatted })).toEqual({ valid: false, reason: 'bad_signature' });
+	});
+
+	it.each([
+		['too old', NOW - MAX_TIMESTAMP_SKEW_SECONDS - 1],
+		['too far in the future', NOW + MAX_TIMESTAMP_SKEW_SECONDS + 1],
+	])('rejects a timestamp that is %s', (_label, value) => {
+		const timestamp = String(value);
+		expect(check({ timestamp, signature: sign(timestamp) })).toEqual({
+			valid: false,
+			reason: 'stale_timestamp',
+		});
+	});
+
+	it.each([
+		['missing', undefined],
+		['empty', ''],
+		['not numeric', 'yesterday'],
+		['in milliseconds', String(NOW * 1000)],
+	])('rejects a timestamp that is %s', (_label, timestamp) => {
+		expect(check({ timestamp })).toEqual({ valid: false, reason: 'missing_or_bad_timestamp' });
+	});
+
+	it.each([
+		['missing', undefined],
+		['without the sha256= prefix', sign(String(NOW)).replace('sha256=', '')],
+	])('rejects a signature that is %s', (_label, signature) => {
+		expect(check({ signature })).toEqual({ valid: false, reason: 'missing_signature' });
+	});
+
+	it.each([
+		['too short', 'sha256=abc'],
+		['not hex', 'sha256=' + 'z'.repeat(64)],
+		['upper case', sign(String(NOW)).toUpperCase().replace('SHA256=', 'sha256=')],
+	])('rejects a signature that is %s without throwing', (_label, signature) => {
+		expect(() => check({ signature })).not.toThrow();
+		expect(check({ signature })).toEqual({ valid: false, reason: 'bad_signature' });
 	});
 });
 
 describe('isPing', () => {
-	it('recognises the portal test delivery only', () => {
-		expect(isPing({ object: 'automiq', type: 'ping', id: 'x' })).toBe(true);
-		expect(isPing(messagePayload)).toBe(false);
-		expect(isPing(null)).toBe(false);
+	it('recognises a portal ping', () => {
+		expect(isPing({ object: 'automiq', type: 'ping' })).toBe(true);
+	});
+
+	it.each([
+		['a WhatsApp delivery', { object: 'whatsapp_business_account', entry: [] }],
+		['another AutomiQ event', { object: 'automiq', type: 'other' }],
+		['null', null],
+		['a string', 'ping'],
+	])('does not treat %s as a ping', (_label, payload) => {
+		expect(isPing(payload)).toBe(false);
 	});
 });
 
-describe('flattenEvents', () => {
-	it('flattens an incoming text message and keeps the original in raw', () => {
-		const [event] = flattenEvents(messagePayload, ['messages']);
-		expect(event).toMatchObject({
-			event: 'message',
-			message_id: 'wamid.IN1',
-			from: '16505551234',
-			from_user_id: 'US.1',
-			name: 'Test User',
-			type: 'text',
-			text: 'Test read',
-			timestamp: 1792772499,
-			phone_number_id: '100000000000001',
-			display_phone_number: '15550001234',
-			waba_id: '200000000000002',
-		});
-		expect(event.raw).toEqual(messagePayload.entry[0].changes[0].value.messages[0]);
-	});
-
-	it('flattens statuses, and filters by event kind', () => {
-		expect(flattenEvents(statusPayload, ['statuses'])).toEqual([
-			expect.objectContaining({
-				event: 'status',
-				message_id: 'wamid.OUT1',
-				status: 'delivered',
-				recipient_user_id: 'US.1',
-			}),
-		]);
-		expect(flattenEvents(statusPayload, ['messages'])).toEqual([]);
-		expect(flattenEvents(messagePayload, ['statuses'])).toEqual([]);
-	});
-
-	it('reads media, interactive replies and reply context', () => {
-		const payload = JSON.parse(JSON.stringify(messagePayload));
-		payload.entry[0].changes[0].value.messages = [
-			{
-				id: 'w1',
-				from: '1',
-				timestamp: '1',
-				type: 'image',
-				image: { id: '123', mime_type: 'image/jpeg', caption: 'Hi' },
-			},
-			{
-				id: 'w2',
-				from: '1',
-				timestamp: '1',
-				type: 'interactive',
-				interactive: { button_reply: { id: 'yes', title: 'Yes' } },
-			},
-			{
-				id: 'w3',
-				from: '1',
-				timestamp: '1',
-				type: 'text',
-				text: { body: 'ok' },
-				context: { id: 'wamid.PREV' },
-			},
-		];
-		const [image, button, reply] = flattenEvents(payload, ['messages']);
-		expect(image).toMatchObject({ media_id: '123', mime_type: 'image/jpeg', caption: 'Hi' });
-		expect(button).toMatchObject({ text: 'Yes', reply_id: 'yes' });
-		expect(reply).toMatchObject({ text: 'ok', reply_to_message_id: 'wamid.PREV' });
-		expect(image).not.toHaveProperty('text');
-	});
-
-	it('puts other changes under event "other" only when asked', () => {
-		const other = {
-			entry: [
-				{
-					id: 'W',
-					changes: [{ field: 'message_template_status_update', value: { event: 'APPROVED' } }],
-				},
-			],
-		};
-		expect(flattenEvents(other, ['messages', 'statuses'])).toEqual([]);
-		expect(flattenEvents(other, ['other'])).toEqual([
-			{
-				event: 'other',
-				field: 'message_template_status_update',
-				waba_id: 'W',
-				raw: { event: 'APPROVED' },
-			},
-		]);
-	});
-});
-
-describe('filterNewEvents', () => {
-	it('skips messages and statuses seen before, but keeps a new status for the same message', () => {
-		const events = flattenEvents(messagePayload, ['messages']);
-		const first = filterNewEvents(events, []);
-		expect(first.fresh).toHaveLength(1);
-		expect(filterNewEvents(events, first.seen).fresh).toHaveLength(0);
-
-		const delivered = flattenEvents(statusPayload, ['statuses']);
-		const read = JSON.parse(JSON.stringify(delivered));
-		read[0].status = 'read';
-		const afterDelivered = filterNewEvents(delivered, []);
-		expect(filterNewEvents(read, afterDelivered.seen).fresh).toHaveLength(1);
+describe('flattenEvents with unexpected payloads', () => {
+	it.each([
+		['null', null],
+		['an empty object', {}],
+		['an entry without changes', { entry: [{ id: '200000000000002' }] }],
+	])('returns no events for %s', (_label, payload) => {
+		expect(flattenEvents(payload, ['messages', 'statuses', 'other'])).toEqual([]);
 	});
 });
