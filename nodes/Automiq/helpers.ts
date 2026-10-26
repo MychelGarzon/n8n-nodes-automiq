@@ -14,6 +14,12 @@ export interface ApiErrorText {
 
 const MAX_TEXT_LENGTH = 4096;
 
+function asText(value: unknown): string {
+	if (typeof value === 'string') return value.trim();
+	if (typeof value === 'number') return String(value);
+	return '';
+}
+
 /** Digits only, international format, no leading + or 00. */
 export function normalizeRecipient(raw: string): string {
 	const text = (raw as unknown) == null ? '' : String(raw).trim();
@@ -51,7 +57,7 @@ export function buildTextMessage(input: TextMessageInput): Record<string, unknow
 			`The message text is ${text.length} characters long. WhatsApp allows up to ${MAX_TEXT_LENGTH}.`,
 		);
 	}
-	const replyTo = input.replyToMessageId?.trim();
+	const replyTo = asText(input.replyToMessageId);
 
 	return {
 		messaging_product: 'whatsapp',
@@ -188,7 +194,7 @@ export function buildMediaMessage(input: MediaMessageInput): Record<string, unkn
 		throw new Error(`Unsupported media source "${input.source}". Use a URL or a media ID.`);
 	}
 
-	const caption = input.caption?.trim();
+	const caption = asText(input.caption);
 	if (caption && CAPTION_TYPES.includes(mediaType)) {
 		if (caption.length > MAX_CAPTION_LENGTH) {
 			throw new Error(
@@ -198,12 +204,12 @@ export function buildMediaMessage(input: MediaMessageInput): Record<string, unkn
 		media.caption = caption;
 	}
 
-	const filename = input.filename?.trim();
+	const filename = asText(input.filename);
 	if (filename && mediaType === 'document') {
 		media.filename = filename;
 	}
 
-	const replyTo = input.replyToMessageId?.trim();
+	const replyTo = asText(input.replyToMessageId);
 
 	return {
 		messaging_product: 'whatsapp',
@@ -283,7 +289,7 @@ function parseComponents(componentsJson: unknown): unknown[] | undefined {
 function bodyComponent(parameters: TemplateParameterInput[]): unknown[] | undefined {
 	if (parameters.length === 0) return undefined;
 
-	const named = parameters.filter((p) => p.name?.trim()).length;
+	const named = parameters.filter((p) => parameterName(p)).length;
 	if (named > 0 && named < parameters.length) {
 		throw new Error(
 			'Use either named parameters (all with a Name) or numbered parameters (all without a Name), not both.',
@@ -300,11 +306,16 @@ function bodyComponent(parameters: TemplateParameterInput[]): unknown[] | undefi
 						`Body parameter ${index + 1} is empty. WhatsApp does not accept empty values.`,
 					);
 				}
-				const name = p.name?.trim();
+				const name = parameterName(p);
 				return { type: 'text', ...(name ? { parameter_name: name } : {}), text };
 			}),
 		},
 	];
+}
+
+function parameterName(p: TemplateParameterInput): string {
+	const name = asText(p.name);
+	return /^\d+$/.test(name) ? '' : name;
 }
 
 /** The Meta Cloud API body for a template message. Components (JSON) replaces Body Parameters when set. */

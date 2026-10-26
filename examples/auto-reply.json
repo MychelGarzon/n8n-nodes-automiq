@@ -4,16 +4,13 @@
 		{
 			"parameters": {
 				"events": ["messages"],
-				"options": {
-					"ignoreDuplicates": true
-				}
+				"options": {}
 			},
 			"id": "0b6f3c1e-1a2b-4c3d-8e9f-000000000001",
 			"name": "AutomiQ for WhatsApp Trigger",
 			"type": "@automiq/n8n-nodes-automiq.automiqTrigger",
 			"typeVersion": 1,
-			"position": [0, 0],
-			"webhookId": "0b6f3c1e-1a2b-4c3d-8e9f-0000000000aa"
+			"position": [0, 0]
 		},
 		{
 			"parameters": {
