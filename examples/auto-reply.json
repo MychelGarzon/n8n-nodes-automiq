@@ -1,0 +1,57 @@
+{
+	"name": "AutomiQ: auto-reply to WhatsApp messages",
+	"nodes": [
+		{
+			"parameters": {
+				"events": ["messages"],
+				"options": {
+					"ignoreDuplicates": true
+				}
+			},
+			"id": "0b6f3c1e-1a2b-4c3d-8e9f-000000000001",
+			"name": "AutomiQ for WhatsApp Trigger",
+			"type": "@automiq/n8n-nodes-automiq.automiqTrigger",
+			"typeVersion": 1,
+			"position": [0, 0],
+			"webhookId": "0b6f3c1e-1a2b-4c3d-8e9f-0000000000aa"
+		},
+		{
+			"parameters": {
+				"resource": "message",
+				"operation": "markAsRead",
+				"phoneNumberId": "={{ $json.phone_number_id }}",
+				"messageId": "={{ $json.message_id }}",
+				"showTypingIndicator": true
+			},
+			"id": "0b6f3c1e-1a2b-4c3d-8e9f-000000000002",
+			"name": "Mark as Read",
+			"type": "@automiq/n8n-nodes-automiq.automiq",
+			"typeVersion": 1,
+			"position": [220, 0]
+		},
+		{
+			"parameters": {
+				"resource": "message",
+				"operation": "sendText",
+				"phoneNumberId": "={{ $('AutomiQ for WhatsApp Trigger').item.json.phone_number_id }}",
+				"to": "={{ $('AutomiQ for WhatsApp Trigger').item.json.from }}",
+				"text": "=Hi {{ $('AutomiQ for WhatsApp Trigger').item.json.name || 'there' }}, thanks for your message. We will reply soon.",
+				"options": {}
+			},
+			"id": "0b6f3c1e-1a2b-4c3d-8e9f-000000000003",
+			"name": "Send Reply",
+			"type": "@automiq/n8n-nodes-automiq.automiq",
+			"typeVersion": 1,
+			"position": [440, 0]
+		}
+	],
+	"connections": {
+		"AutomiQ for WhatsApp Trigger": {
+			"main": [[{ "node": "Mark as Read", "type": "main", "index": 0 }]]
+		},
+		"Mark as Read": {
+			"main": [[{ "node": "Send Reply", "type": "main", "index": 0 }]]
+		}
+	},
+	"settings": {}
+}
