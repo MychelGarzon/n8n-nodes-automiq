@@ -1,11 +1,6 @@
 import { createHmac } from 'crypto';
 
-import {
-	filterNewEvents,
-	flattenEvents,
-	isPing,
-	verifyAutomiqSignature,
-} from '../webhookHelpers';
+import { filterNewEvents, flattenEvents, isPing, verifyAutomiqSignature } from '../webhookHelpers';
 
 const secret = 'a'.repeat(64);
 const now = 1792772500;
@@ -17,13 +12,13 @@ const messagePayload = {
 	object: 'whatsapp_business_account',
 	entry: [
 		{
-			id: '1994442441262596',
+			id: '200000000000002',
 			changes: [
 				{
 					field: 'messages',
 					value: {
 						messaging_product: 'whatsapp',
-						metadata: { display_phone_number: '358468045157', phone_number_id: '1352140101310633' },
+						metadata: { display_phone_number: '15550001234', phone_number_id: '100000000000001' },
 						contacts: [{ profile: { name: 'Test User' }, wa_id: '16505551234', user_id: 'US.1' }],
 						messages: [
 							{
@@ -46,14 +41,20 @@ const statusPayload = {
 	object: 'whatsapp_business_account',
 	entry: [
 		{
-			id: '1994442441262596',
+			id: '200000000000002',
 			changes: [
 				{
 					field: 'messages',
 					value: {
-						metadata: { display_phone_number: '358468045157', phone_number_id: '1352140101310633' },
+						metadata: { display_phone_number: '15550001234', phone_number_id: '100000000000001' },
 						statuses: [
-							{ id: 'wamid.OUT1', status: 'delivered', timestamp: '1792772500', recipient_id: '16505551234', recipient_user_id: 'US.1' },
+							{
+								id: 'wamid.OUT1',
+								status: 'delivered',
+								timestamp: '1792772500',
+								recipient_id: '16505551234',
+								recipient_user_id: 'US.1',
+							},
 						],
 					},
 				},
@@ -80,13 +81,19 @@ describe('verifyAutomiqSignature', () => {
 	});
 
 	it('rejects a wrong secret, a tampered body, a stale timestamp and missing headers', () => {
-		expect(check({ signature: sign(ts, body, 'b'.repeat(64)) })).toEqual({ valid: false, reason: 'bad_signature' });
+		expect(check({ signature: sign(ts, body, 'b'.repeat(64)) })).toEqual({
+			valid: false,
+			reason: 'bad_signature',
+		});
 		expect(check({ rawBody: Buffer.from(body.replace('Test read', 'Hacked'), 'utf8') })).toEqual({
 			valid: false,
 			reason: 'bad_signature',
 		});
 		expect(check({ nowSeconds: now + 301 })).toEqual({ valid: false, reason: 'stale_timestamp' });
-		expect(check({ timestamp: undefined })).toEqual({ valid: false, reason: 'missing_or_bad_timestamp' });
+		expect(check({ timestamp: undefined })).toEqual({
+			valid: false,
+			reason: 'missing_or_bad_timestamp',
+		});
 		expect(check({ signature: undefined })).toEqual({ valid: false, reason: 'missing_signature' });
 	});
 
@@ -124,16 +131,21 @@ describe('flattenEvents', () => {
 			type: 'text',
 			text: 'Test read',
 			timestamp: 1792772499,
-			phone_number_id: '1352140101310633',
-			display_phone_number: '358468045157',
-			waba_id: '1994442441262596',
+			phone_number_id: '100000000000001',
+			display_phone_number: '15550001234',
+			waba_id: '200000000000002',
 		});
 		expect(event.raw).toEqual(messagePayload.entry[0].changes[0].value.messages[0]);
 	});
 
 	it('flattens statuses, and filters by event kind', () => {
 		expect(flattenEvents(statusPayload, ['statuses'])).toEqual([
-			expect.objectContaining({ event: 'status', message_id: 'wamid.OUT1', status: 'delivered', recipient_user_id: 'US.1' }),
+			expect.objectContaining({
+				event: 'status',
+				message_id: 'wamid.OUT1',
+				status: 'delivered',
+				recipient_user_id: 'US.1',
+			}),
 		]);
 		expect(flattenEvents(statusPayload, ['messages'])).toEqual([]);
 		expect(flattenEvents(messagePayload, ['statuses'])).toEqual([]);
@@ -142,9 +154,28 @@ describe('flattenEvents', () => {
 	it('reads media, interactive replies and reply context', () => {
 		const payload = JSON.parse(JSON.stringify(messagePayload));
 		payload.entry[0].changes[0].value.messages = [
-			{ id: 'w1', from: '1', timestamp: '1', type: 'image', image: { id: '123', mime_type: 'image/jpeg', caption: 'Hi' } },
-			{ id: 'w2', from: '1', timestamp: '1', type: 'interactive', interactive: { button_reply: { id: 'yes', title: 'Yes' } } },
-			{ id: 'w3', from: '1', timestamp: '1', type: 'text', text: { body: 'ok' }, context: { id: 'wamid.PREV' } },
+			{
+				id: 'w1',
+				from: '1',
+				timestamp: '1',
+				type: 'image',
+				image: { id: '123', mime_type: 'image/jpeg', caption: 'Hi' },
+			},
+			{
+				id: 'w2',
+				from: '1',
+				timestamp: '1',
+				type: 'interactive',
+				interactive: { button_reply: { id: 'yes', title: 'Yes' } },
+			},
+			{
+				id: 'w3',
+				from: '1',
+				timestamp: '1',
+				type: 'text',
+				text: { body: 'ok' },
+				context: { id: 'wamid.PREV' },
+			},
 		];
 		const [image, button, reply] = flattenEvents(payload, ['messages']);
 		expect(image).toMatchObject({ media_id: '123', mime_type: 'image/jpeg', caption: 'Hi' });
@@ -154,10 +185,22 @@ describe('flattenEvents', () => {
 	});
 
 	it('puts other changes under event "other" only when asked', () => {
-		const other = { entry: [{ id: 'W', changes: [{ field: 'message_template_status_update', value: { event: 'APPROVED' } }] }] };
+		const other = {
+			entry: [
+				{
+					id: 'W',
+					changes: [{ field: 'message_template_status_update', value: { event: 'APPROVED' } }],
+				},
+			],
+		};
 		expect(flattenEvents(other, ['messages', 'statuses'])).toEqual([]);
 		expect(flattenEvents(other, ['other'])).toEqual([
-			{ event: 'other', field: 'message_template_status_update', waba_id: 'W', raw: { event: 'APPROVED' } },
+			{
+				event: 'other',
+				field: 'message_template_status_update',
+				waba_id: 'W',
+				raw: { event: 'APPROVED' },
+			},
 		]);
 	});
 });

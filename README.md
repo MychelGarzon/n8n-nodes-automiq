@@ -34,9 +34,9 @@ See the n8n [community nodes installation guide](https://docs.n8n.io/integration
 
 Create one **AutomiQ API** credential. Both nodes use it.
 
-| Field | Where to find it | Needed for |
-|---|---|---|
-| **API Key** | AutomiQ portal > **API keys**. It starts with `amq_live_` and is shown only once when you create it. | Both nodes |
+| Field              | Where to find it                                                                                     | Needed for       |
+| ------------------ | ---------------------------------------------------------------------------------------------------- | ---------------- |
+| **API Key**        | AutomiQ portal > **API keys**. It starts with `amq_live_` and is shown only once when you create it. | Both nodes       |
 | **Webhook Secret** | AutomiQ portal > **Webhook** > reveal the **Webhook secret** (64 characters). Not the webhook token. | The Trigger only |
 
 When you save the credential, n8n tests the API key against AutomiQ. A wrong or revoked key shows "Invalid or revoked AutomiQ API key".
@@ -49,40 +49,40 @@ All operations are under **Resource: Message**. Pick the **Sender Phone Number**
 
 ### Send Text
 
-| Field | Notes |
-|---|---|
-| Recipient Phone Number | International format with the country code, for example `16505551234`. Spaces, dashes, `+` and a leading `00` are removed. |
-| Text | Up to 4096 characters. |
-| Options > Link Preview | Shows a preview of the first link. |
-| Options > Reply To Message ID | Sends the message as a reply that quotes a received message. |
+| Field                         | Notes                                                                                                                      |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Recipient Phone Number        | International format with the country code, for example `16505551234`. Spaces, dashes, `+` and a leading `00` are removed. |
+| Text                          | Up to 4096 characters.                                                                                                     |
+| Options > Link Preview        | Shows a preview of the first link.                                                                                         |
+| Options > Reply To Message ID | Sends the message as a reply that quotes a received message.                                                               |
 
 Free-form messages can only be sent within 24 hours after the customer last wrote to you. Outside that window, use **Send Template**.
 
 ### Send Media
 
-| Field | Notes |
-|---|---|
-| Media Type | Image (JPEG or PNG, up to 5 MB), Document (PDF, Word, Excel, PowerPoint or TXT, up to 100 MB), Audio (AAC, AMR, MP3, M4A or OGG Opus, up to 16 MB), Video (MP4 or 3GP with H.264 and AAC, up to 16 MB). |
-| Media Source | **URL**: a public link that starts with `https://`. WhatsApp downloads the file from there. **Media ID**: media already uploaded to WhatsApp. |
-| Caption | Image, video and document only. Up to 1024 characters. |
-| File Name | Document only. Include the extension, so WhatsApp shows the right icon. |
-| Options > Reply To Message ID | Sends the media as a reply. |
+| Field                         | Notes                                                                                                                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Media Type                    | Image (JPEG or PNG, up to 5 MB), Document (PDF, Word, Excel, PowerPoint or TXT, up to 100 MB), Audio (AAC, AMR, MP3, M4A or OGG Opus, up to 16 MB), Video (MP4 or 3GP with H.264 and AAC, up to 16 MB). |
+| Media Source                  | **URL**: a public link that starts with `https://`. WhatsApp downloads the file from there. **Media ID**: media already uploaded to WhatsApp.                                                           |
+| Caption                       | Image, video and document only. Up to 1024 characters.                                                                                                                                                  |
+| File Name                     | Document only. Include the extension, so WhatsApp shows the right icon.                                                                                                                                 |
+| Options > Reply To Message ID | Sends the media as a reply.                                                                                                                                                                             |
 
 ### Send Template
 
 Templates are the only way to start a conversation, or to write to someone after the 24-hour window.
 
-| Field | Notes |
-|---|---|
-| Template | Lists the **approved** templates of the sender number's WhatsApp account, for example `order_update (en)`. In an expression, use `name|language_code`, for example `order_update|en_US`. This is the same format n8n's built-in WhatsApp node uses. |
-| Body Parameters | One value per variable in the template body. For numbered variables like `{{1}}`, leave **Name** empty and keep the order. For named variables like `{{first_name}}`, fill in **Name**. |
-| Options > Components (JSON) | Advanced: the full `components` array from Meta's template documentation, for header media and buttons. Replaces Body Parameters when set. |
+| Field                       | Notes                                                                                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------ |
+| Template                    | Lists the **approved** templates of the sender number's WhatsApp account, for example `order_update (en)`. In an expression, use `name                                                  | language_code`, for example `order_update | en_US`. This is the same format n8n's built-in WhatsApp node uses. |
+| Body Parameters             | One value per variable in the template body. For numbered variables like `{{1}}`, leave **Name** empty and keep the order. For named variables like `{{first_name}}`, fill in **Name**. |
+| Options > Components (JSON) | Advanced: the full `components` array from Meta's template documentation, for header media and buttons. Replaces Body Parameters when set.                                              |
 
 ### Mark as Read
 
-| Field | Notes |
-|---|---|
-| Message ID | The ID of a **received** message, for example `{{ $json.message_id }}` from the Trigger. |
+| Field                 | Notes                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Message ID            | The ID of a **received** message, for example `{{ $json.message_id }}` from the Trigger.                           |
 | Show Typing Indicator | Also shows "typing..." to the customer until you reply, or for up to 25 seconds. Only use it when a reply follows. |
 
 ### Use with AI Agents
@@ -112,11 +112,11 @@ You do not need Header Auth, a Code node or the `crypto` module setting on self-
 
 ### Events
 
-| Event | Starts the workflow for |
-|---|---|
-| **Messages** (default) | Messages your customers send |
-| **Statuses** | Sent, delivered, read and failed updates for messages you sent |
-| **Other Events** | Other WhatsApp changes, such as template status updates |
+| Event                  | Starts the workflow for                                        |
+| ---------------------- | -------------------------------------------------------------- |
+| **Messages** (default) | Messages your customers send                                   |
+| **Statuses**           | Sent, delivered, read and failed updates for messages you sent |
+| **Other Events**       | Other WhatsApp changes, such as template status updates        |
 
 Use **Messages** for reply bots. Statuses have no sender (`from`), so an expression like `{{ $json.from }}` is empty for them.
 
@@ -128,18 +128,18 @@ One item per message or status. Each item also includes `raw` with Meta's origin
 
 ```json
 {
-  "event": "message",
-  "message_id": "wamid.HBgM...",
-  "from": "16505551234",
-  "from_user_id": "US.123456",
-  "name": "Jessica",
-  "type": "text",
-  "timestamp": 1792772499,
-  "text": "Hello!",
-  "phone_number_id": "1352140101310633",
-  "display_phone_number": "358468045157",
-  "waba_id": "1994442441262596",
-  "raw": { "...": "Meta's original message" }
+	"event": "message",
+	"message_id": "wamid.HBgM...",
+	"from": "16505551234",
+	"from_user_id": "US.123456",
+	"name": "Jessica",
+	"type": "text",
+	"timestamp": 1792772499,
+	"text": "Hello!",
+	"phone_number_id": "100000000000001",
+	"display_phone_number": "15550001234",
+	"waba_id": "200000000000002",
+	"raw": { "...": "Meta's original message" }
 }
 ```
 
@@ -149,11 +149,11 @@ Depending on the message type, it also has `media_id`, `mime_type`, `caption` an
 
 ### Options
 
-| Option | Effect |
-|---|---|
-| Ignore Duplicates | Skips messages and statuses that already started this workflow. Only works when the workflow is active. |
+| Option               | Effect                                                                                                                  |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Ignore Duplicates    | Skips messages and statuses that already started this workflow. Only works when the workflow is active.                 |
 | Include Portal Pings | Also starts the workflow for the portal's **Send test delivery**. Off by default. Pings are always answered with `200`. |
-| Raw Payload | Outputs the whole delivery as one item instead of one item per message or status. |
+| Raw Payload          | Outputs the whole delivery as one item instead of one item per message or status.                                       |
 
 ### Debugging with real messages
 
@@ -190,18 +190,18 @@ Quick tunnel addresses change every time you start one.
 
 The nodes translate the most common errors into plain messages. The original WhatsApp text and code are always shown in the details.
 
-| Message | Meaning |
-|---|---|
-| Invalid or revoked AutomiQ API key | Create a new key in the portal and update the credential. |
-| This AutomiQ account is suspended | Contact AutomiQ support. |
-| This phone number is not linked to your AutomiQ account | Pick a number from the Sender Phone Number list. |
-| Outside the 24-hour customer service window (131047) | Send an approved template instead. |
-| WhatsApp could not deliver the message (131026) | The recipient may not have WhatsApp, or cannot receive messages from this number. |
-| WhatsApp rate limit reached (130429) | Turn on **Retry On Fail** in the node settings, or slow the workflow down. |
-| The template parameters do not match the template (132000) | The number of Body Parameters must match the template's variables. |
-| This template does not exist or is not approved (132001) | Check the name, the language and the approval status in WhatsApp Manager. |
-| The recipient phone number is empty | An expression resolved to nothing, for example `{{ $json.from }}` on a status event. |
-| ... looks like an expression typed in Fixed mode | Click **Expression** on that field. |
+| Message                                                    | Meaning                                                                              |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Invalid or revoked AutomiQ API key                         | Create a new key in the portal and update the credential.                            |
+| This AutomiQ account is suspended                          | Contact AutomiQ support.                                                             |
+| This phone number is not linked to your AutomiQ account    | Pick a number from the Sender Phone Number list.                                     |
+| Outside the 24-hour customer service window (131047)       | Send an approved template instead.                                                   |
+| WhatsApp could not deliver the message (131026)            | The recipient may not have WhatsApp, or cannot receive messages from this number.    |
+| WhatsApp rate limit reached (130429)                       | Turn on **Retry On Fail** in the node settings, or slow the workflow down.           |
+| The template parameters do not match the template (132000) | The number of Body Parameters must match the template's variables.                   |
+| This template does not exist or is not approved (132001)   | Check the name, the language and the approval status in WhatsApp Manager.            |
+| The recipient phone number is empty                        | An expression resolved to nothing, for example `{{ $json.from }}` on a status event. |
+| ... looks like an expression typed in Fixed mode           | Click **Expression** on that field.                                                  |
 
 ## Compatibility
 
