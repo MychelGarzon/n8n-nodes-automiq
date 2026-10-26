@@ -6,7 +6,7 @@ import type {
 	IWebhookFunctions,
 	IWebhookResponseData,
 } from 'n8n-workflow';
-import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+import { NodeConnectionTypes } from 'n8n-workflow';
 
 import type { EventKind } from './webhookHelpers';
 import { filterNewEvents, flattenEvents, isPing, verifyAutomiqSignature } from './webhookHelpers';
@@ -123,10 +123,9 @@ export class AutomiqTrigger implements INodeType {
 		const credentials = await this.getCredentials('automiqApi');
 		const secret = String(credentials.webhookSecret ?? '').trim();
 		if (!secret) {
-			throw new NodeOperationError(this.getNode(), 'The AutomiQ API credential has no Webhook Secret', {
-				description:
-					'Copy the Webhook Secret from the Webhook page of the AutomiQ portal into the credential. Deliveries cannot be verified without it.',
-			});
+			const res = this.getResponseObject();
+			res.status(401).json({ error: 'invalid_signature', reason: 'secret_not_configured' }).end();
+			return { noWebhookResponse: true };
 		}
 
 		const req = this.getRequestObject();
