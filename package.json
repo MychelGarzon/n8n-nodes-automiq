@@ -32,11 +32,12 @@
         "prepublishOnly": "n8n-node prerelease",
         "test": "jest"
     },
-    "files": [
-        "dist",
-        "!dist/**/__tests__/**",
-        "!dist/tsconfig.tsbuildinfo"
-    ],
+  "files": [
+	"dist",
+	"!dist/**/__tests__/**",
+	"!dist/coverage/**",
+	"!dist/tsconfig.tsbuildinfo"
+],
     "n8n": {
         "n8nNodesApiVersion": 1,
         "strict": true,

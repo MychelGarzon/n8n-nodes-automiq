@@ -440,11 +440,18 @@ export class Automiq implements INodeType {
 				);
 				returnData.push({ json: response, pairedItem: { item: i } });
 			} catch (error) {
+				const nodeError = toNodeError(this.getNode(), error, i);
 				if (this.continueOnFail()) {
-					returnData.push({ json: { error: (error as Error).message }, pairedItem: { item: i } });
+					returnData.push({
+						json: {
+							error: nodeError.message,
+							...(nodeError.description ? { description: nodeError.description } : {}),
+						},
+						pairedItem: { item: i },
+					});
 					continue;
 				}
-				throw toNodeError(this.getNode(), error, i);
+				throw nodeError;
 			}
 		}
 
