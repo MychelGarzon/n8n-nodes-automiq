@@ -89,7 +89,7 @@ describe('Automiq node execute', () => {
 					mediaType: 'image',
 					mediaSource: 'link',
 					mediaUrl: 'https://example.com/photo.jpg',
-					caption: 'A photo',
+					mediaOptions: { caption: 'A photo' },
 				},
 			]);
 			await run();
@@ -139,7 +139,7 @@ describe('Automiq node execute', () => {
 					operation: 'markAsRead',
 					phoneNumberId: PHONE_NUMBER_ID,
 					messageId: 'wamid.IN',
-					showTypingIndicator: true,
+					markAsReadOptions: { showTypingIndicator: true },
 				},
 			]);
 			await run();

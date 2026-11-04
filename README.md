@@ -64,8 +64,8 @@ Free-form messages can only be sent within 24 hours after the customer last wrot
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Media Type                    | Image (JPEG or PNG, up to 5 MB), Document (PDF, Word, Excel, PowerPoint or TXT, up to 100 MB), Audio (AAC, AMR, MP3, M4A or OGG Opus, up to 16 MB), Video (MP4 or 3GP with H.264 and AAC, up to 16 MB). |
 | Media Source                  | **URL**: a public link that starts with `https://`. WhatsApp downloads the file from there. **Media ID**: media already uploaded to WhatsApp.                                                           |
-| Caption                       | Image, video and document only. Up to 1024 characters.                                                                                                                                                  |
-| File Name                     | Document only. Include the extension, so WhatsApp shows the right icon.                                                                                                                                 |
+| Options > Caption             | Image, video and document only. Up to 1024 characters.                                                                                                                                                  |
+| Options > File Name           | Document only. Include the extension, so WhatsApp shows the right icon.                                                                                                                                 |
 | Options > Reply To Message ID | Sends the media as a reply.                                                                                                                                                                             |
 
 ### Send Template
@@ -80,10 +80,10 @@ Templates are the only way to start a conversation, or to write to someone after
 
 ### Mark as Read
 
-| Field                 | Notes                                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Message ID            | The ID of a **received** message, for example `{{ $json.message_id }}` from the Trigger.                           |
-| Show Typing Indicator | Also shows "typing..." to the customer until you reply, or for up to 25 seconds. Only use it when a reply follows. |
+| Field                           | Notes                                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Message ID                      | The ID of a **received** message, for example `{{ $json.message_id }}` from the Trigger.                           |
+| Options > Show Typing Indicator | Also shows "typing..." to the customer until you reply, or for up to 25 seconds. Only use it when a reply follows. |
 
 ### Use with AI Agents
 
@@ -93,10 +93,11 @@ The node can be used as a tool by n8n AI Agents. A common setup: **AutomiQ for W
 
 ### Setup
 
-1. Add **AutomiQ for WhatsApp Trigger** to a workflow and select your AutomiQ API credential, with the **Webhook Secret** filled in.
-2. Copy the trigger's **Production URL**.
-3. In the AutomiQ portal, open **Webhook**, paste the URL and save.
-4. Activate the workflow.
+1. In the AutomiQ portal, open **Webhook** and reveal the **Webhook secret**. Put it in the **Webhook Secret** field of your AutomiQ API credential. The trigger checks every delivery against it.
+2. Add **AutomiQ for WhatsApp Trigger** to a workflow and select that credential.
+3. Copy the trigger's **Production URL**.
+4. In the AutomiQ portal, on the **Webhook** page, paste the URL and save.
+5. Activate the workflow.
 
 **Why the URL is set by hand:** AutomiQ has one webhook URL per account, and it can only be changed in the portal after a recent sign-in. There is deliberately no API to change it, because anyone who could change it could redirect every incoming message.
 
@@ -219,6 +220,12 @@ The nodes translate the most common errors into plain messages. The original Wha
 - [Changelog](CHANGELOG.md)
 
 ## Version history
+
+**0.2.4**: fixes from the n8n verification review.
+
+- Send Media: Caption and File Name moved into Options.
+- Mark as Read: Show Typing Indicator moved into Options.
+- Trigger: removed the setup notice from the node. The steps are in Trigger > Setup above.
 
 **0.2.3**: fixes from live testing.
 

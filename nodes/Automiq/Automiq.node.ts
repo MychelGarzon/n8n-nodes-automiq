@@ -80,11 +80,9 @@ function buildRequestBody(
 				source,
 				value: this.getNodeParameter(source === 'id' ? 'mediaId' : 'mediaUrl', i) as string,
 				caption:
-					mediaType === 'audio' ? undefined : (this.getNodeParameter('caption', i, '') as string),
+					mediaType === 'audio' ? undefined : ((options.caption as string | undefined) ?? ''),
 				filename:
-					mediaType === 'document'
-						? (this.getNodeParameter('filename', i, '') as string)
-						: undefined,
+					mediaType === 'document' ? ((options.filename as string | undefined) ?? '') : undefined,
 				replyToMessageId: options.replyToMessageId as string | undefined,
 			});
 		}
@@ -103,11 +101,13 @@ function buildRequestBody(
 				componentsJson: options.componentsJson,
 			});
 		}
-		case 'markAsRead':
+		case 'markAsRead': {
+			const options = this.getNodeParameter('markAsReadOptions', i, {}) as IDataObject;
 			return buildMarkAsRead(
 				this.getNodeParameter('messageId', i) as string,
-				this.getNodeParameter('showTypingIndicator', i, false) as boolean,
+				(options.showTypingIndicator as boolean | undefined) ?? false,
 			);
+		}
 		default:
 			throw new NodeOperationError(
 				this.getNode(),
@@ -285,32 +285,34 @@ export class Automiq implements INodeType {
 				displayOptions: showFor(['sendMedia'], { mediaSource: ['id'] }),
 			},
 			{
-				displayName: 'Caption',
-				name: 'caption',
-				type: 'string',
-				typeOptions: { rows: 2 },
-				default: '',
-				description: 'Text shown under the media, up to 1024 characters',
-				displayOptions: showFor(['sendMedia'], { mediaType: ['document', 'image', 'video'] }),
-			},
-			{
-				displayName: 'File Name',
-				name: 'filename',
-				type: 'string',
-				default: '',
-				placeholder: 'e.g. invoice-march.pdf',
-				description:
-					'The file name the user sees. Include the extension so WhatsApp shows the right icon.',
-				displayOptions: showFor(['sendMedia'], { mediaType: ['document'] }),
-			},
-			{
 				displayName: 'Options',
 				name: 'mediaOptions',
 				type: 'collection',
 				placeholder: 'Add option',
 				default: {},
 				displayOptions: showFor(['sendMedia']),
-				options: [replyToMessageIdOption],
+				options: [
+					{
+						displayName: 'Caption',
+						name: 'caption',
+						type: 'string',
+						typeOptions: { rows: 2 },
+						default: '',
+						description: 'Text shown under the media, up to 1024 characters',
+						displayOptions: { show: { '/mediaType': ['document', 'image', 'video'] } },
+					},
+					{
+						displayName: 'File Name',
+						name: 'filename',
+						type: 'string',
+						default: '',
+						placeholder: 'e.g. invoice-march.pdf',
+						description:
+							'The file name the user sees. Include the extension so WhatsApp shows the right icon.',
+						displayOptions: { show: { '/mediaType': ['document'] } },
+					},
+					replyToMessageIdOption,
+				],
 			},
 			{
 				displayName: 'Template Name or ID',
@@ -388,13 +390,22 @@ export class Automiq implements INodeType {
 				displayOptions: showFor(['markAsRead']),
 			},
 			{
-				displayName: 'Show Typing Indicator',
-				name: 'showTypingIndicator',
-				type: 'boolean',
-				default: false,
-				description:
-					'Whether to also show "typing..." to the user. WhatsApp hides it when you reply, or after 25 seconds. Only use it when a reply follows.',
+				displayName: 'Options',
+				name: 'markAsReadOptions',
+				type: 'collection',
+				placeholder: 'Add option',
+				default: {},
 				displayOptions: showFor(['markAsRead']),
+				options: [
+					{
+						displayName: 'Show Typing Indicator',
+						name: 'showTypingIndicator',
+						type: 'boolean',
+						default: false,
+						description:
+							'Whether to also show "typing..." to the user. WhatsApp hides it when you reply, or after 25 seconds. Only use it when a reply follows.',
+					},
+				],
 			},
 		],
 	};

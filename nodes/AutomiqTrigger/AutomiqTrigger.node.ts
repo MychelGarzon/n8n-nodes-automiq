@@ -40,13 +40,6 @@ export class AutomiqTrigger implements INodeType {
 		activationMessage: 'Incoming WhatsApp messages will now start this workflow.',
 		properties: [
 			{
-				displayName:
-					'Copy the Production URL above into the AutomiQ portal on the Webhook page. Put the Webhook Secret from that page into the AutomiQ API credential. Every delivery is checked against it.',
-				name: 'setupNotice',
-				type: 'notice',
-				default: '',
-			},
-			{
 				displayName: 'Events',
 				name: 'events',
 				type: 'multiOptions',
