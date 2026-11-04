@@ -5,22 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.4] - 2026-11-04
+## [0.2.4](https://github.com/MychelGarzon/n8n-nodes-automiq/compare/0.2.3...0.2.4)
 
-### Changed
+### Merged
 
-- Send Media: Caption and File Name moved into the Options collection.
-- Mark as Read: Show Typing Indicator moved into a new Options collection.
+- test: guard the short action names [`#15`](https://github.com/MychelGarzon/n8n-nodes-automiq/pull/15)
 
-### Removed
+### Commits
 
-- Trigger: removed the setup notice from the node. The setup steps are in the README under Trigger > Setup.
-
-### Upgrade note
-
-- Workflows that already use Caption, File Name or Show Typing Indicator need these values set again under Options.
-
-## [0.2.3](https://github.com/MychelGarzon/n8n-nodes-automiq/compare/0.2.3...0.2.3)
+- Move optional fields into Options collections and remove trigger setup notice [`78365d9`](https://github.com/MychelGarzon/n8n-nodes-automiq/commit/78365d9076c4ddce711e9c83e82219d1eada0cd0)
+- docs: changelog for 0.2.3 [`9d36fed`](https://github.com/MychelGarzon/n8n-nodes-automiq/commit/9d36fed41b19af91fd904e9181e59c4f5926a609)
+- Move optional fields into Options collections and remove trigger setup notice [`98aca87`](https://github.com/MychelGarzon/n8n-nodes-automiq/commit/98aca8784d26fd4ea8baf8cf23d082abc7fd023e)
+- fix: revert version number to 0.2.3 in package.json [`2f4837e`](https://github.com/MychelGarzon/n8n-nodes-automiq/commit/2f4837e6804d39db9b58929e9bf9681d37175da1)
 
 ## [0.2.3](https://github.com/MychelGarzon/n8n-nodes-automiq/compare/0.2.2...0.2.3) - 2026-10-26
 
