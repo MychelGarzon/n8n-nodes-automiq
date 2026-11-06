@@ -62,44 +62,34 @@ export function toNodeError(
 interface TemplateRow {
 	name: string;
 	language: string;
-	status: string;
+	status?: string;
 	category?: string;
 }
 
-const MAX_TEMPLATE_PAGES = 10;
-
-/** Approved templates of the WABA that owns this phone number, as dropdown options. */
+/** Approved templates of this phone number, as dropdown options. The gateway lists them. */
 export async function listApprovedTemplates(
 	this: ILoadOptionsFunctions,
 	phoneNumberId: string,
 ): Promise<Array<{ name: string; value: string; description?: string }>> {
-	const numbers = (await automiqApiRequest.call(this, 'GET', '/api/gateway/numbers')) as {
-		data?: Array<{ phone_number_id: string; waba_id: string }>;
-	};
-	const wabaId = numbers.data?.find((n) => n.phone_number_id === phoneNumberId)?.waba_id;
-	if (!wabaId) return [];
+	const response = (await automiqApiRequest.call(
+		this,
+		'GET',
+		`/api/gateway/templates?number_id=${encodeURIComponent(phoneNumberId)}`,
+	)) as { data?: TemplateRow[]; truncated?: boolean };
 
-	const rows: TemplateRow[] = [];
-	let after: string | undefined;
-	// Pages are fetched one after another: each request needs the cursor from the previous answer.
-	for (let page = 0; page < MAX_TEMPLATE_PAGES; page++) {
-		const query = `fields=name,language,status,category&limit=100${after ? `&after=${encodeURIComponent(after)}` : ''}`;
-		const response = (await automiqApiRequest.call(
-			this,
-			'GET',
-			`/api/gateway/whatsapp/${GRAPH_VERSION}/${encodeURIComponent(wabaId)}/message_templates?${query}`,
-		)) as { data?: TemplateRow[]; paging?: { cursors?: { after?: string }; next?: string } };
-		rows.push(...(response.data ?? []));
-		after = response.paging?.next ? response.paging.cursors?.after : undefined;
-		if (!after) break;
-	}
+	const note = response.truncated
+		? 'The list is incomplete. For other templates, use an expression: name|language_code'
+		: undefined;
 
-	return rows
+	return (response.data ?? [])
 		.filter((t) => t.status === 'APPROVED')
 		.sort((a, b) => a.name.localeCompare(b.name) || a.language.localeCompare(b.language))
-		.map((t) => ({
-			name: `${t.name} (${t.language})`,
-			value: `${t.name}|${t.language}`,
-			...(t.category ? { description: t.category.toLowerCase() } : {}),
-		}));
+		.map((t) => {
+			const description = [t.category?.toLowerCase(), note].filter(Boolean).join('. ');
+			return {
+				name: `${t.name} (${t.language})`,
+				value: `${t.name}|${t.language}`,
+				...(description ? { description } : {}),
+			};
+		});
 }
