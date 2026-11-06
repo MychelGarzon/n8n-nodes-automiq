@@ -272,6 +272,7 @@ The nodes translate the most common errors into plain messages. The original Wha
 ## Resources
 
 - [AutomiQ](https://www.automiq.fi) and the AutomiQ portal
+- Example workflows: [auto-reply](examples/auto-reply.json), [download media that customers send](examples/media-download.json) and [daily check for failed deliveries](examples/failed-deliveries-alert.json). Import them with **Import from File** in n8n.
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/#community-nodes)
 - [WhatsApp Cloud API: send messages](https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-messages)
 - [WhatsApp message templates](https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/overview)
