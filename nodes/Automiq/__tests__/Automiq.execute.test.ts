@@ -321,18 +321,17 @@ describe('Automiq node load options', () => {
 		]);
 	});
 
-	it('lists only approved templates, sorted, across pages', async () => {
+	it('lists only approved templates, sorted', async () => {
 		const { context, request } = loadContext(
 			[
-				{ data: [{ phone_number_id: PHONE_NUMBER_ID, waba_id: '200000000000002' }] },
 				{
 					data: [
 						{ name: 'welcome', language: 'en_US', status: 'APPROVED', category: 'MARKETING' },
 						{ name: 'draft', language: 'en_US', status: 'PENDING' },
+						{ name: 'alert', language: 'fi', status: 'APPROVED', category: 'UTILITY' },
 					],
-					paging: { next: 'https://next', cursors: { after: 'CURSOR' } },
+					truncated: false,
 				},
-				{ data: [{ name: 'alert', language: 'fi', status: 'APPROVED', category: 'UTILITY' }] },
 			],
 			PHONE_NUMBER_ID,
 		);
@@ -341,8 +340,27 @@ describe('Automiq node load options', () => {
 		expect(options.map((o) => o.value)).toEqual(['alert|fi', 'welcome|en_US']);
 		expect(options.map((o) => o.name)).toEqual(['alert (fi)', 'welcome (en_US)']);
 		expect(options.map((o) => o.description)).toEqual(['utility', 'marketing']);
-		expect(request).toHaveBeenCalledTimes(3);
-		expect(request.mock.calls[2][1].url).toContain('after=CURSOR');
+		expect(request).toHaveBeenCalledTimes(1);
+		expect(request.mock.calls[0][1].url).toContain(
+			`/api/gateway/templates?number_id=${PHONE_NUMBER_ID}`,
+		);
+	});
+
+	it('says in each description when the template list was cut off', async () => {
+		const { context } = loadContext(
+			[
+				{
+					data: [{ name: 'alert', language: 'fi', status: 'APPROVED', category: 'UTILITY' }],
+					truncated: true,
+				},
+			],
+			PHONE_NUMBER_ID,
+		);
+		const options = await new Automiq().methods.loadOptions.getTemplates.call(context);
+
+		expect(options).toHaveLength(1);
+		expect(options[0].description).toContain('utility');
+		expect(options[0].description).toContain('The list is incomplete');
 	});
 
 	it('returns no templates when no sender phone number is chosen', async () => {
