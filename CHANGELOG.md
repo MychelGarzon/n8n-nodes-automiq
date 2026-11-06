@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.4](https://github.com/MychelGarzon/n8n-nodes-automiq/compare/0.2.3...0.2.4)
+## [0.3.0](https://github.com/MychelGarzon/n8n-nodes-automiq/compare/0.2.4...0.3.0)
+
+### Merged
+
+- Add AutomiQ-native resources and Download Media. [`#16`](https://github.com/MychelGarzon/n8n-nodes-automiq/pull/16)
+
+## [0.2.4](https://github.com/MychelGarzon/n8n-nodes-automiq/compare/0.2.3...0.2.4) - 2026-11-04
 
 ### Merged
 
@@ -13,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Commits
 
+- Sync package-lock.json with package.json [`eff8492`](https://github.com/MychelGarzon/n8n-nodes-automiq/commit/eff84929909dbe7ca3e189b05c005388a7fd88b2)
 - Move optional fields into Options collections and remove trigger setup notice [`78365d9`](https://github.com/MychelGarzon/n8n-nodes-automiq/commit/78365d9076c4ddce711e9c83e82219d1eada0cd0)
 - docs: changelog for 0.2.3 [`9d36fed`](https://github.com/MychelGarzon/n8n-nodes-automiq/commit/9d36fed41b19af91fd904e9181e59c4f5926a609)
 - Move optional fields into Options collections and remove trigger setup notice [`98aca87`](https://github.com/MychelGarzon/n8n-nodes-automiq/commit/98aca8784d26fd4ea8baf8cf23d082abc7fd023e)
