@@ -133,6 +133,15 @@ export async function executeDelivery(
 			const returnAll = this.getNodeParameter('returnAll', i) as boolean;
 			const limit = returnAll ? Infinity : (this.getNodeParameter('limit', i) as number);
 			const filters = this.getNodeParameter('filters', i, {}) as IDataObject;
+
+			if ('numberId' in filters && !String(filters.numberId ?? '').trim()) {
+				throw new NodeOperationError(this.getNode(), 'Choose a Phone Number for the filter', {
+					itemIndex: i,
+					description:
+						'The Phone Number filter is empty. Pick a number, or remove the filter to list all deliveries.',
+				});
+			}
+
 			const rows: IDataObject[] = [];
 			let cursor: string | undefined;
 			// The cursor is opaque: it is passed back exactly as the gateway returned it.
