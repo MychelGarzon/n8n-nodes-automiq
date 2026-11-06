@@ -1,7 +1,9 @@
 // Pure helpers with no n8n runtime dependency, so they are easy to unit test.
 
 export interface TextMessageInput {
-	to: string;
+	to?: string;
+	recipient?: string;
+	recipientMode?: string;
 	text: string;
 	previewUrl?: boolean;
 	replyToMessageId?: string;
@@ -62,7 +64,7 @@ export function buildTextMessage(input: TextMessageInput): Record<string, unknow
 	return {
 		messaging_product: 'whatsapp',
 		recipient_type: 'individual',
-		to: normalizeRecipient(input.to),
+		...buildRecipientFields(input),
 		type: 'text',
 		text: {
 			body: text,
@@ -241,7 +243,9 @@ export interface TemplateParameterInput {
 }
 
 export interface TemplateMessageInput {
-	to: string;
+	to?: string;
+	recipient?: string;
+	recipientMode?: string;
 	template: string;
 	bodyParameters?: TemplateParameterInput[];
 	componentsJson?: unknown;
@@ -327,7 +331,7 @@ export function buildTemplateMessage(input: TemplateMessageInput): Record<string
 	return {
 		messaging_product: 'whatsapp',
 		recipient_type: 'individual',
-		to: normalizeRecipient(input.to),
+		...buildRecipientFields(input),
 		type: 'template',
 		template: {
 			name,
@@ -365,4 +369,32 @@ export function describeApiError(
 	}
 
 	return undefined;
+}
+
+export interface RecipientSource {
+	recipientMode?: string;
+	to?: string;
+	recipient?: string;
+}
+
+const BSUID_PATTERN = /^[A-Z]{2}\.(?:ENT\.)?[A-Za-z0-9]{1,128}$/i;
+
+/** The recipient fields of a message: `to` for a phone number, `recipient` for a business-scoped user ID (BSUID). */
+export function buildRecipientFields(input: RecipientSource): { to?: string; recipient?: string } {
+	const mode = input.recipientMode || 'phoneNumber';
+	if (mode === 'phoneNumber') {
+		return { to: normalizeRecipient(input.to ?? '') };
+	}
+	if (mode !== 'bsuid' && mode !== 'both') {
+		throw new Error(`Unsupported recipient mode "${mode}".`);
+	}
+	const bsuid = asText(input.recipient);
+	if (!BSUID_PATTERN.test(bsuid)) {
+		throw new Error(
+			`"${bsuid}" is not a valid business-scoped user ID. Use the full ID with its country prefix, for example US.13491208655302741918.`,
+		);
+	}
+	return mode === 'bsuid'
+		? { recipient: bsuid }
+		: { to: normalizeRecipient(input.to ?? ''), recipient: bsuid };
 }
