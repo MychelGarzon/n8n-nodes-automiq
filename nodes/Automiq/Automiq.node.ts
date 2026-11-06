@@ -69,7 +69,9 @@ function buildRequestBody(
 		case 'sendText': {
 			const options = this.getNodeParameter('options', i, {}) as IDataObject;
 			return buildTextMessage({
-				to: this.getNodeParameter('to', i) as string,
+				to: this.getNodeParameter('to', i, '') as string,
+				recipientMode: this.getNodeParameter('recipientMode', i, 'phoneNumber') as string,
+				recipient: this.getNodeParameter('businessScopedUserId', i, '') as string,
 				text: this.getNodeParameter('text', i) as string,
 				previewUrl: options.previewUrl as boolean | undefined,
 				replyToMessageId: options.replyToMessageId as string | undefined,
@@ -100,7 +102,9 @@ function buildRequestBody(
 					}
 				).parameter ?? [];
 			return buildTemplateMessage({
-				to: this.getNodeParameter('to', i) as string,
+				to: this.getNodeParameter('to', i, '') as string,
+				recipientMode: this.getNodeParameter('recipientMode', i, 'phoneNumber') as string,
+				recipient: this.getNodeParameter('businessScopedUserId', i, '') as string,
 				template: this.getNodeParameter('template', i) as string,
 				bodyParameters: parameters,
 				componentsJson: options.componentsJson,
@@ -221,6 +225,31 @@ export class Automiq implements INodeType {
 				displayOptions: showFor(['sendText', 'sendMedia', 'sendTemplate', 'markAsRead']),
 			},
 			{
+				displayName: 'Recipient Mode',
+				name: 'recipientMode',
+				type: 'options',
+				options: [
+					{
+						name: 'Business-Scoped User ID (BSUID)',
+						value: 'bsuid',
+						description: 'Address the recipient by BSUID, for users who have no phone number',
+					},
+					{
+						name: 'Phone Number',
+						value: 'phoneNumber',
+						description: 'Address the recipient by WhatsApp phone number',
+					},
+					{
+						name: 'Phone Number and BSUID',
+						value: 'both',
+						description: 'Send both identifiers, with the phone number taking precedence',
+					},
+				],
+				default: 'phoneNumber',
+				description: 'How to address the recipient',
+				displayOptions: showFor(['sendText', 'sendTemplate']),
+			},
+			{
 				displayName: 'Recipient Phone Number',
 				name: 'to',
 				type: 'string',
@@ -229,7 +258,33 @@ export class Automiq implements INodeType {
 				placeholder: 'e.g. 16505551234',
 				description:
 					'The WhatsApp number to send to, in international format with the country code. Spaces, dashes and a leading + are removed.',
-				displayOptions: showFor(['sendText', 'sendMedia', 'sendTemplate']),
+				displayOptions: showFor(['sendText', 'sendTemplate'], {
+					recipientMode: ['phoneNumber', 'both'],
+				}),
+			},
+			{
+				displayName: 'Recipient BSUID',
+				name: 'businessScopedUserId',
+				type: 'string',
+				required: true,
+				default: '',
+				placeholder: 'e.g. US.13491208655302741918',
+				description:
+					'The full business-scoped user ID of the recipient, for example from the AutomiQ for WhatsApp Trigger',
+				displayOptions: showFor(['sendText', 'sendTemplate'], {
+					recipientMode: ['bsuid', 'both'],
+				}),
+			},
+			{
+				displayName: 'Recipient Phone Number',
+				name: 'to',
+				type: 'string',
+				required: true,
+				default: '',
+				placeholder: 'e.g. 16505551234',
+				description:
+					'The WhatsApp number to send to, in international format with the country code. Spaces, dashes and a leading + are removed.',
+				displayOptions: showFor(['sendMedia']),
 			},
 			{
 				displayName: 'Text',

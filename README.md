@@ -116,6 +116,20 @@ Templates are the only way to start a conversation, or to write to someone after
 
 To choose a template with an expression, write the name and the language code with a vertical bar between them, for example `order_update|en_US`. This is the same format n8n's built-in WhatsApp node uses. If the template list is cut off, the dropdown says so, and you can use an expression for the others.
 
+#### Recipients without a phone number
+
+WhatsApp users can choose a username and hide their phone number. For these users, a message has a business-scoped user ID (BSUID) and may have no phone number. The Trigger outputs it as `from_user_id`.
+
+Send Text and Send Template have a **Recipient Mode** field:
+
+| Mode                            | What it sends                                                   |
+| ------------------------------- | --------------------------------------------------------------- |
+| Phone Number (default)          | The phone number in `to`                                        |
+| Business-Scoped User ID (BSUID) | The BSUID in `recipient`, for example `US.13491208655302741918` |
+| Phone Number and BSUID          | Both. WhatsApp gives the phone number precedence                |
+
+For a reply bot, set **Recipient Mode** to **Business-Scoped User ID (BSUID)** and **Recipient BSUID** to `{{ $json.from_user_id }}`. Send Media supports phone numbers only. For other message types, use **Send Raw Payload (Advanced)** with a `recipient` field.
+
 #### Mark as Read
 
 | Field                           | Notes                                                                                                              |
@@ -279,6 +293,10 @@ The nodes translate the most common errors into plain messages. The original Wha
 - [Changelog](CHANGELOG.md)
 
 ## Version history
+
+**0.3.1**: recipients without a phone number.
+
+- Send Text and Send Template: new Recipient Mode field, to send to a business-scoped user ID (BSUID) instead of a phone number.
 
 **0.3.0**: AutomiQ-native resources.
 
