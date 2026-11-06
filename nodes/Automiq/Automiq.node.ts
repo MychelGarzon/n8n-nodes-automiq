@@ -25,6 +25,7 @@ import { accountFields, accountOperations, executeAccount } from './AccountDescr
 import { deliveryFields, deliveryOperations, executeDelivery } from './DeliveryDescription';
 import { executeWebhook, webhookOperations } from './WebhookDescription';
 import { downloadMediaFields, executeDownloadMedia } from './MediaDescription';
+import { executeSendRaw, rawPayloadFields } from './RawPayloadDescription';
 
 const showFor = (operations: string[], extra: Record<string, string[]> = {}) => ({
 	show: { resource: ['message'], operation: operations, ...extra },
@@ -185,6 +186,13 @@ export class Automiq implements INodeType {
 						description: 'Send an image, document, audio or video to a WhatsApp user',
 					},
 					{
+						name: 'Send Raw Payload (Advanced)',
+						value: 'sendRaw',
+						action: 'Send a raw message payload',
+						description:
+							'Send a message body in the WhatsApp Cloud API format, for types the other operations do not cover',
+					},
+					{
 						name: 'Send Template',
 						value: 'sendTemplate',
 						action: 'Send template message',
@@ -200,6 +208,7 @@ export class Automiq implements INodeType {
 				default: 'sendText',
 			},
 			...downloadMediaFields,
+			...rawPayloadFields,
 			{
 				displayName: 'Sender Phone Number Name or ID',
 				name: 'phoneNumberId',
@@ -475,6 +484,10 @@ export class Automiq implements INodeType {
 				}
 				if (resource === 'message' && operation === 'downloadMedia') {
 					returnData.push(...(await executeDownloadMedia.call(this, i)));
+					continue;
+				}
+				if (resource === 'message' && operation === 'sendRaw') {
+					returnData.push(...(await executeSendRaw.call(this, i)));
 					continue;
 				}
 				const phoneNumberId = getPhoneNumberId.call(this, i);
