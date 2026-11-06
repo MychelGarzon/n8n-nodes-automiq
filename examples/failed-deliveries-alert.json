@@ -1,0 +1,84 @@
+{
+	"name": "AutomiQ: daily check for failed deliveries",
+	"nodes": [
+		{
+			"parameters": {
+				"rule": {
+					"interval": [{ "field": "days", "triggerAtHour": 8 }]
+				}
+			},
+			"id": "0b6f3c1e-1a2b-4c3d-8e9f-000000000021",
+			"name": "Every morning",
+			"type": "n8n-nodes-base.scheduleTrigger",
+			"typeVersion": 1.2,
+			"position": [0, 0]
+		},
+		{
+			"parameters": {
+				"resource": "delivery",
+				"operation": "getMany",
+				"returnAll": false,
+				"limit": 50,
+				"filters": { "status": "failed" }
+			},
+			"id": "0b6f3c1e-1a2b-4c3d-8e9f-000000000022",
+			"name": "Get failed deliveries",
+			"type": "@automiq/n8n-nodes-automiq.automiq",
+			"typeVersion": 1,
+			"position": [220, 0]
+		},
+		{
+			"parameters": {
+				"conditions": {
+					"options": {
+						"caseSensitive": true,
+						"leftValue": "",
+						"typeValidation": "loose",
+						"version": 2
+					},
+					"conditions": [
+						{
+							"id": "0b6f3c1e-1a2b-4c3d-8e9f-0000000000b1",
+							"leftValue": "={{ $json.created_at }}",
+							"operator": { "type": "dateTime", "operation": "after" },
+							"rightValue": "={{ $now.minus({ hours: 24 }).toISO() }}"
+						},
+						{
+							"id": "0b6f3c1e-1a2b-4c3d-8e9f-0000000000b2",
+							"leftValue": "={{ $json.is_test }}",
+							"operator": { "type": "boolean", "operation": "false", "singleValue": true }
+						}
+					],
+					"combinator": "and"
+				},
+				"options": {}
+			},
+			"id": "0b6f3c1e-1a2b-4c3d-8e9f-000000000023",
+			"name": "Last 24 hours, no tests",
+			"type": "n8n-nodes-base.filter",
+			"typeVersion": 2.2,
+			"position": [440, 0]
+		},
+		{
+			"parameters": {},
+			"id": "0b6f3c1e-1a2b-4c3d-8e9f-000000000024",
+			"name": "Send your alert here",
+			"type": "n8n-nodes-base.noOp",
+			"typeVersion": 1,
+			"position": [660, 0],
+			"notes": "Replace this node with Slack, Email or Teams. Each item is one failed delivery, with created_at, event_type, status_code and error_summary. The workflow only reaches this node when there is at least one failure."
+		}
+	],
+	"connections": {
+		"Every morning": {
+			"main": [[{ "node": "Get failed deliveries", "type": "main", "index": 0 }]]
+		},
+		"Get failed deliveries": {
+			"main": [[{ "node": "Last 24 hours, no tests", "type": "main", "index": 0 }]]
+		},
+		"Last 24 hours, no tests": {
+			"main": [[{ "node": "Send your alert here", "type": "main", "index": 0 }]]
+		}
+	},
+	"settings": {}
+}

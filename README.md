@@ -7,7 +7,7 @@ Send and receive WhatsApp messages in n8n through the [AutomiQ Gateway](https://
 
 One credential, no HTTP Request nodes, no Code nodes, no secrets pasted into workflows:
 
-- **AutomiQ for WhatsApp**: send text, media and template messages, and mark messages as read. Works as a tool for n8n AI Agents.
+- **AutomiQ for WhatsApp**: send text, media and template messages, download media that customers send you, check your AutomiQ account, numbers and delivery log, and send test deliveries. Works as a tool for n8n AI Agents.
 - **AutomiQ for WhatsApp Trigger**: receives messages and delivery statuses, verifies every delivery inside the node, and outputs one clean item per message.
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/sustainable-use-license/) workflow automation platform.
@@ -45,9 +45,45 @@ When you save the credential, n8n tests the API key against AutomiQ. A wrong or 
 
 ## Operations
 
-All operations are under **Resource: Message**. Pick the **Sender Phone Number** from the list. It shows the numbers connected to your AutomiQ account.
+The node has four resources. **Account**, **Delivery** and **Webhook** use features that only AutomiQ provides, so they work with your AutomiQ API key alone, with no Meta app or token.
 
-### Send Text
+| Resource | Operation                   | What it does                                                                     | AutomiQ-native                           |
+| -------- | --------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------- |
+| Account  | Get                         | Your account status and the requests and messages used in the last 30 days       | Yes                                      |
+| Account  | Get Many Numbers            | The WhatsApp numbers connected to your account                                   | Yes                                      |
+| Account  | Get Number                  | Status, quality rating and messaging limit tier of one number                    | Yes                                      |
+| Delivery | Get Many                    | The log of webhook deliveries, newest first, with filters for status and number  | Yes                                      |
+| Delivery | Get                         | One delivery from the log                                                        | Yes                                      |
+| Delivery | Send Test Delivery          | Sends a signed test event to your webhook URL                                    | Yes                                      |
+| Message  | Download Media              | Downloads media a customer sent you, up to 4 MB                                  | Yes                                      |
+| Message  | Mark as Read                | Marks a received message as read                                                 | No, uses the official WhatsApp Cloud API |
+| Message  | Send Media                  | Sends an image, document, audio or video                                         | No, uses the official WhatsApp Cloud API |
+| Message  | Send Raw Payload (Advanced) | Sends a message body you write yourself                                          | No, uses the official WhatsApp Cloud API |
+| Message  | Send Template               | Sends an approved template                                                       | No, uses the official WhatsApp Cloud API |
+| Message  | Send Text                   | Sends a text message                                                             | No, uses the official WhatsApp Cloud API |
+| Webhook  | Get Status                  | Whether a webhook URL is set, its host, the test URL state and the last delivery | Yes                                      |
+
+### Account
+
+**Get** returns your account status and your usage in the last 30 days: requests and messages, plus the errors of the last 24 hours. It is a count of use, not a limit.
+
+**Get Many Numbers** and **Get Number** show your connected numbers, with status, quality rating and messaging limit tier.
+
+### Delivery
+
+AutomiQ keeps a log of every webhook delivery to your workflow. It records when, what kind of event, whether it worked and why it failed, but never the message content.
+
+| Operation          | Notes                                                                                                                                                                                                                                         |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Get Many           | Newest first. **Return All** follows the pages for you. Filter by **Status** (delivered, failed or skipped) and by **Phone Number**. Deliveries from before the number was recorded have no number, so the number filter does not match them. |
+| Get                | One delivery by its ID.                                                                                                                                                                                                                       |
+| Send Test Delivery | Sends a signed test event to your webhook URL. A failed test returns `ok: false`, and the reason is in the delivery log. It stops with a message when no webhook URL is set, or when you test too often.                                      |
+
+### Message
+
+For all message operations except Download Media, pick the **Sender Phone Number** from the list. It shows the numbers connected to your AutomiQ account.
+
+#### Send Text
 
 | Field                         | Notes                                                                                                                      |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -58,7 +94,7 @@ All operations are under **Resource: Message**. Pick the **Sender Phone Number**
 
 Free-form messages can only be sent within 24 hours after the customer last wrote to you. Outside that window, use **Send Template**.
 
-### Send Media
+#### Send Media
 
 | Field                         | Notes                                                                                                                                                                                                   |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -68,22 +104,44 @@ Free-form messages can only be sent within 24 hours after the customer last wrot
 | Options > File Name           | Document only. Include the extension, so WhatsApp shows the right icon.                                                                                                                                 |
 | Options > Reply To Message ID | Sends the media as a reply.                                                                                                                                                                             |
 
-### Send Template
+#### Send Template
 
 Templates are the only way to start a conversation, or to write to someone after the 24-hour window.
 
 | Field                       | Notes                                                                                                                                                                                                                            |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------ |
-| Template                    | Lists the **approved** templates of the sender number's WhatsApp account, for example `order_update (en)`. In an expression, use `name                                                                                           | language_code`, for example `order_update | en_US`. This is the same format n8n's built-in WhatsApp node uses. |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Template                    | Lists the **approved** templates of the sender number's WhatsApp account, for example `order_update (en)`.                                                                                                                       |
 | Body Parameters             | One value per variable in the template body. For numbered variables like `{{1}}`, leave **Name** empty and keep the order. For named variables like `{{first_name}}`, fill in **Name** without braces, for example `first_name`. |
 | Options > Components (JSON) | Advanced: the full `components` array from Meta's template documentation, for header media and buttons. Replaces Body Parameters when set.                                                                                       |
 
-### Mark as Read
+To choose a template with an expression, write the name and the language code with a vertical bar between them, for example `order_update|en_US`. This is the same format n8n's built-in WhatsApp node uses. If the template list is cut off, the dropdown says so, and you can use an expression for the others.
+
+#### Mark as Read
 
 | Field                           | Notes                                                                                                              |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Message ID                      | The ID of a **received** message, for example `{{ $json.message_id }}` from the Trigger.                           |
 | Options > Show Typing Indicator | Also shows "typing..." to the customer until you reply, or for up to 25 seconds. Only use it when a reply follows. |
+
+#### Send Raw Payload (Advanced)
+
+An escape hatch for message types the other operations do not cover, such as interactive buttons or lists. You provide the message body in the WhatsApp Cloud API format, and `messaging_product` is added for you. Prefer the other operations when they fit.
+
+#### Download Media
+
+Downloads an image, document, audio or video that a customer sent you. WhatsApp only gives you a media ID, and downloading the file needs a Meta token that AutomiQ holds for you.
+
+| Field                    | Notes                                                                                                                                  |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Phone Number             | The number that received the media.                                                                                                    |
+| Media ID                 | The ID inside the `image`, `audio`, `document` or `video` object of the received message, not the message ID that starts with `wamid.` |
+| Put Output File in Field | The name of the binary field for the file. Default `data`.                                                                             |
+
+The file is limited to 4 MB. A larger file stops with a clear message. WhatsApp keeps received media for a limited time, so download it soon after it arrives.
+
+### Webhook
+
+**Get Status** shows whether a webhook URL is set, the host it points to, whether a test URL is active, and the result of the last delivery. It never returns the URL path, the secret or the token.
 
 ### Use with AI Agents
 
@@ -214,12 +272,23 @@ The nodes translate the most common errors into plain messages. The original Wha
 ## Resources
 
 - [AutomiQ](https://www.automiq.fi) and the AutomiQ portal
+- Example workflows: [auto-reply](examples/auto-reply.json), [download media that customers send](examples/media-download.json) and [daily check for failed deliveries](examples/failed-deliveries-alert.json). Import them with **Import from File** in n8n.
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/#community-nodes)
 - [WhatsApp Cloud API: send messages](https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-messages)
 - [WhatsApp message templates](https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/overview)
 - [Changelog](CHANGELOG.md)
 
 ## Version history
+
+**0.3.0**: AutomiQ-native resources.
+
+- New resource Account: Get, Get Many Numbers and Get Number.
+- New resource Delivery: Get Many (with status and number filters), Get and Send Test Delivery.
+- New resource Webhook: Get Status.
+- Message: new operations Download Media (media a customer sent you, up to 4 MB) and Send Raw Payload (Advanced).
+- The template list now comes from the AutomiQ Gateway and says when it is incomplete.
+- Delivery Get Many stops with a clear message when the number filter is empty.
+- The trigger is unchanged.
 
 **0.2.4**: fixes from the n8n verification review.
 
