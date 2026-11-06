@@ -6,16 +6,12 @@ import type {
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
-import { automiqApiRequest } from './GenericFunctions';
+import { automiqApiRequest, operationProperty } from './GenericFunctions';
 
 export const accountOperations: INodeProperties[] = [
-	{
-		displayName: 'Operation',
-		name: 'operation',
-		type: 'options',
-		noDataExpression: true,
-		displayOptions: { show: { resource: ['account'] } },
-		options: [
+	operationProperty(
+		'account',
+		[
 			{
 				name: 'Get',
 				value: 'get',
@@ -35,8 +31,8 @@ export const accountOperations: INodeProperties[] = [
 				description: 'Get the status and quality rating of one connected number',
 			},
 		],
-		default: 'get',
-	},
+		'get',
+	),
 ];
 
 export const accountFields: INodeProperties[] = [

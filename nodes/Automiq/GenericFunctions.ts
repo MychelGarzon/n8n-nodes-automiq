@@ -4,14 +4,32 @@ import type {
 	IHttpRequestMethods,
 	ILoadOptionsFunctions,
 	INode,
+	INodeProperties,
+	INodePropertyOptions,
 	JsonObject,
 } from 'n8n-workflow';
-import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 
+import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { AUTOMIQ_BASE_URL } from '../../credentials/AutomiqApi.credentials';
 import { describeApiError } from './helpers';
 
 export const GRAPH_VERSION = 'v21.0';
+
+export function operationProperty(
+	resource: string,
+	options: INodePropertyOptions[],
+	defaultValue: string,
+): INodeProperties {
+	return {
+		displayName: 'Operation',
+		name: 'operation',
+		type: 'options',
+		noDataExpression: true,
+		displayOptions: { show: { resource: [resource] } },
+		options,
+		default: defaultValue,
+	};
+}
 
 /** Every call to the AutomiQ Gateway goes through here. The credential adds X-API-Key. */
 export async function automiqApiRequest(

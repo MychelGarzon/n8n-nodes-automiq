@@ -8,18 +8,14 @@ import type {
 import { NodeApiError, NodeOperationError } from 'n8n-workflow';
 
 import { AUTOMIQ_BASE_URL } from '../../credentials/AutomiqApi.credentials';
-import { automiqApiRequest } from './GenericFunctions';
+import { automiqApiRequest, operationProperty } from './GenericFunctions';
 
 const MAX_PAGE_SIZE = 100;
 
 export const deliveryOperations: INodeProperties[] = [
-	{
-		displayName: 'Operation',
-		name: 'operation',
-		type: 'options',
-		noDataExpression: true,
-		displayOptions: { show: { resource: ['delivery'] } },
-		options: [
+	operationProperty(
+		'delivery',
+		[
 			{
 				name: 'Get',
 				value: 'get',
@@ -39,8 +35,8 @@ export const deliveryOperations: INodeProperties[] = [
 				description: 'Send a signed test event to the webhook URL set in the AutomiQ portal',
 			},
 		],
-		default: 'getMany',
-	},
+		'getMany',
+	),
 ];
 
 export const deliveryFields: INodeProperties[] = [
